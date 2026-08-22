@@ -1,0 +1,115 @@
+# .htaccess
+# Ubicación: C:\xampp\htdocs\produmar\.htaccess
+
+RewriteEngine On
+RewriteBase /produmar/
+
+# ==========================================
+# PERMITIR ARCHIVOS PHP EN LA RAÍZ (test_*.php, fix_*.php, generate_*.php)
+# ==========================================
+RewriteCond %{REQUEST_URI} ^/produmar/(test_|fix_|generate_).*\.php$
+RewriteRule ^ - [L]
+
+# ==========================================
+# PERMITIR ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES, ETC)
+# ==========================================
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# ==========================================
+# REDIRECCIONES AMIGABLES
+# ==========================================
+
+# Autenticación
+RewriteRule ^login$ index.php?controller=auth&action=login [QSA,L]
+RewriteRule ^auth/login$ index.php?controller=auth&action=login [QSA,L]
+RewriteRule ^auth/authenticate$ index.php?controller=auth&action=authenticate [QSA,L]
+RewriteRule ^logout$ index.php?controller=auth&action=logout [QSA,L]
+RewriteRule ^auth/logout$ index.php?controller=auth&action=logout [QSA,L]
+
+# Dashboard
+RewriteRule ^dashboard$ index.php?controller=dashboard&action=index [QSA,L]
+RewriteRule ^admin/dashboard$ index.php?controller=admin&action=dashboard [QSA,L]
+RewriteRule ^admin/gestion_ordenes$ index.php?controller=admin&action=gestion_ordenes [QSA,L]
+
+# Supervisores (gestión - admin)
+RewriteRule ^supervisores$ index.php?controller=supervisores&action=index [QSA,L]
+RewriteRule ^supervisores/crear$ index.php?controller=supervisores&action=crear [QSA,L]
+RewriteRule ^supervisores/guardar$ index.php?controller=supervisores&action=guardar [QSA,L]
+RewriteRule ^supervisores/editar/([0-9]+)$ index.php?controller=supervisores&action=editar&id=$1 [QSA,L]
+RewriteRule ^supervisores/actualizar/([0-9]+)$ index.php?controller=supervisores&action=actualizar&id=$1 [QSA,L]
+RewriteRule ^supervisores/eliminar/([0-9]+)$ index.php?controller=supervisores&action=eliminar&id=$1 [QSA,L]
+
+# Supervisor (panel propio)
+RewriteRule ^supervisor$ index.php?controller=supervisor&action=index [QSA,L]
+RewriteRule ^supervisor/ordenes$ index.php?controller=supervisor&action=ordenes [QSA,L]
+RewriteRule ^supervisor/revisar/([0-9]+)$ index.php?controller=supervisor&action=revisar&id=$1 [QSA,L]
+RewriteRule ^supervisor/supervisiones$ index.php?controller=supervisor&action=supervisiones [QSA,L]
+RewriteRule ^supervisor/ver_orden/([0-9]+)$ index.php?controller=supervisor&action=ver_orden&id=$1 [QSA,L]
+RewriteRule ^supervisor/ver_supervision/([0-9]+)$ index.php?controller=supervisor&action=ver_supervision&id=$1 [QSA,L]
+RewriteRule ^supervisor/editar/([0-9]+)$ index.php?controller=supervisor&action=editar&id=$1 [QSA,L]
+RewriteRule ^supervisor/guardar_revision$ index.php?controller=supervisor&action=guardar_revision [QSA,L]
+
+# Técnicos (gestión - admin)
+RewriteRule ^tecnicos$ index.php?controller=tecnicos&action=index [QSA,L]
+RewriteRule ^tecnicos/crear$ index.php?controller=tecnicos&action=crear [QSA,L]
+RewriteRule ^tecnicos/guardar$ index.php?controller=tecnicos&action=guardar [QSA,L]
+RewriteRule ^tecnicos/editar/([0-9]+)$ index.php?controller=tecnicos&action=editar&id=$1 [QSA,L]
+RewriteRule ^tecnicos/actualizar/([0-9]+)$ index.php?controller=tecnicos&action=actualizar&id=$1 [QSA,L]
+RewriteRule ^tecnicos/eliminar/([0-9]+)$ index.php?controller=tecnicos&action=eliminar&id=$1 [QSA,L]
+
+# Técnico (panel propio)
+RewriteRule ^tecnico$ index.php?controller=tecnico&action=index [QSA,L]
+RewriteRule ^tecnico/mis_ordenes$ index.php?controller=tecnico&action=mis_ordenes [QSA,L]
+RewriteRule ^tecnico/detalle_orden/([0-9]+)$ index.php?controller=tecnico&action=detalle_orden&id=$1 [QSA,L]
+RewriteRule ^tecnico/cerrar_orden/([0-9]+)$ index.php?controller=tecnico&action=cerrar_orden&id=$1 [QSA,L]
+
+# Órdenes
+RewriteRule ^ordenes$ index.php?controller=orden&action=index [QSA,L]
+RewriteRule ^ordenes/crear$ index.php?controller=orden&action=crear [QSA,L]
+RewriteRule ^ordenes/guardar$ index.php?controller=orden&action=guardar [QSA,L]
+RewriteRule ^ordenes/editar/([0-9]+)$ index.php?controller=orden&action=editar&id=$1 [QSA,L]
+RewriteRule ^ordenes/actualizar/([0-9]+)$ index.php?controller=orden&action=actualizar&id=$1 [QSA,L]
+RewriteRule ^ordenes/ver/([0-9]+)$ index.php?controller=orden&action=ver&id=$1 [QSA,L]
+RewriteRule ^ordenes/cerrar/([0-9]+)$ index.php?controller=orden&action=cerrar&id=$1 [QSA,L]
+RewriteRule ^ordenes/eliminar/([0-9]+)$ index.php?controller=orden&action=eliminar&id=$1 [QSA,L]
+RewriteRule ^ordenes/estadisticas$ index.php?controller=orden&action=estadisticas [QSA,L]
+RewriteRule ^ordenes/detalle/([0-9]+)$ index.php?controller=orden&action=detalle&id=$1 [QSA,L]
+
+# Inventario
+RewriteRule ^inventario$ index.php?controller=inventario&action=index [QSA,L]
+RewriteRule ^inventario/crear$ index.php?controller=inventario&action=crear [QSA,L]
+RewriteRule ^inventario/guardar$ index.php?controller=inventario&action=guardar [QSA,L]
+RewriteRule ^inventario/editar/([0-9]+)$ index.php?controller=inventario&action=editar&id=$1 [QSA,L]
+RewriteRule ^inventario/actualizar/([0-9]+)$ index.php?controller=inventario&action=actualizar&id=$1 [QSA,L]
+RewriteRule ^inventario/eliminar/([0-9]+)$ index.php?controller=inventario&action=eliminar&id=$1 [QSA,L]
+RewriteRule ^inventario/buscar$ index.php?controller=inventario&action=buscar [QSA,L]
+RewriteRule ^inventario/detalle/([0-9]+)$ index.php?controller=inventario&action=detalle&id=$1 [QSA,L]
+
+# Reportes
+RewriteRule ^reportes$ index.php?controller=reportes&action=index [QSA,L]
+RewriteRule ^reportes/ordenes$ index.php?controller=reportes&action=ordenes [QSA,L]
+RewriteRule ^reportes/tecnicos$ index.php?controller=reportes&action=tecnicos [QSA,L]
+RewriteRule ^reportes/exportar$ index.php?controller=reportes&action=exportar [QSA,L]
+RewriteRule ^reportes/imprimir$ index.php?controller=reportes&action=imprimir [QSA,L]
+RewriteRule ^reportes/financieros$ index.php?controller=reporteFinanciero&action=index [QSA,L]
+RewriteRule ^reportes/financieros/exportar$ index.php?controller=reporteFinanciero&action=exportar [QSA,L]
+
+# Supervisión
+RewriteRule ^supervision$ index.php?controller=supervision&action=index [QSA,L]
+RewriteRule ^supervision/crear$ index.php?controller=supervision&action=crear [QSA,L]
+RewriteRule ^supervision/guardar$ index.php?controller=supervision&action=guardar [QSA,L]
+RewriteRule ^supervision/editar/([0-9]+)$ index.php?controller=supervision&action=editar&id=$1 [QSA,L]
+RewriteRule ^supervision/actualizar/([0-9]+)$ index.php?controller=supervision&action=actualizar&id=$1 [QSA,L]
+RewriteRule ^supervision/ver/([0-9]+)$ index.php?controller=supervision&action=ver&id=$1 [QSA,L]
+RewriteRule ^supervision/eliminar/([0-9]+)$ index.php?controller=supervision&action=eliminar&id=$1 [QSA,L]
+RewriteRule ^supervision/aprobar/([0-9]+)$ index.php?controller=supervision&action=aprobar&id=$1 [QSA,L]
+RewriteRule ^supervision/rechazar/([0-9]+)$ index.php?controller=supervision&action=rechazar&id=$1 [QSA,L]
+RewriteRule ^supervision/reporte$ index.php?controller=supervision&action=reporte [QSA,L]
+
+# Reporte Financiero
+
+# ==========================================
+# REDIRIGIR TODO LO DEMÁS A INDEX.PHP
+# ==========================================
+RewriteRule ^(.*)$ index.php?controller=$1&action=index [QSA,L]
