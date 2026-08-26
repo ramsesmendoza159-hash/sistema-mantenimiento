@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($titulo) ? htmlspecialchars($titulo) : 'Dashboard - PRODUMAR' ?></title>
+    <title><?= isset($titulo) ? htmlspecialchars($titulo) : 'Dashboard - PROYECTO' ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
     <style>
@@ -135,7 +135,7 @@
                                                         </td>
                                                         <td><?= date('d/m/Y', strtotime($orden['fecha_creacion'])) ?></td>
                                                         <td>
-                                                            <a href="/produmar/ordenes/ver/<?= $orden['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></a>
+                                                            <a href="/proyecto/ordenes/ver/<?= $orden['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></a>
                                                         </td>
                                                     </tr>
                                                 <?php endforeach; ?>

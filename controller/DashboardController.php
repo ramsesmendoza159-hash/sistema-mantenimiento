@@ -12,7 +12,7 @@ class DashboardController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
@@ -28,16 +28,16 @@ class DashboardController extends Controller {
         
         switch ($rol) {
             case 'admin':
-                header('Location: /produmar/admin/dashboard');
+                header('Location: /proyecto/admin/dashboard');
                 break;
             case 'supervisor':
-                header('Location: /produmar/supervisor');
+                header('Location: /proyecto/supervisor');
                 break;
             case 'tecnico':
-                header('Location: /produmar/tecnico');
+                header('Location: /proyecto/tecnico');
                 break;
             default:
-                header('Location: /produmar/auth/login');
+                header('Location: /proyecto/auth/login');
                 break;
         }
         exit();

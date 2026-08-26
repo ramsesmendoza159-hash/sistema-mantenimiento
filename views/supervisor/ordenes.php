@@ -1,7 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'admin') {
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -17,7 +17,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Órdenes de Trabajo</h1>
-                <a href="/produmar/supervisor" class="btn btn-secondary">
+                <a href="/proyecto/supervisor" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver al Panel
                 </a>
             </div>
@@ -30,20 +30,20 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label for="estado" class="form-label">Estado</label>
                             <select class="form-select" id="estado" name="estado">
                                 <option value="">Todos</option>
-                                <option value="pendiente">Pendiente</option>
-                                <option value="en_progreso">En Progreso</option>
-                                <option value="completada">Completada</option>
-                                <option value="cancelada">Cancelada</option>
+                                <option value="PENDIENTE">Pendiente</option>
+                                <option value="EN_PROCESO">En Progreso</option>
+                                <option value="CERRADA">Completada</option>
+                                <option value="CANCELADA">Cancelada</option>
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label for="prioridad" class="form-label">Prioridad</label>
                             <select class="form-select" id="prioridad" name="prioridad">
                                 <option value="">Todas</option>
-                                <option value="baja">Baja</option>
-                                <option value="media">Media</option>
-                                <option value="alta">Alta</option>
-                                <option value="urgente">Urgente</option>
+                                <option value="Baja">Baja</option>
+                                <option value="Media">Media</option>
+                                <option value="Alta">Alta</option>
+                                <option value="Urgente">Urgente</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -104,7 +104,7 @@ include_once __DIR__ . '/../layouts/header.php';
     const porPagina = 10;
 
     function cargarTecnicos() {
-        fetch('/produmar/supervisor/tecnicosList')
+        fetch('/proyecto/supervisor/tecnicosList')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('tecnico');
@@ -124,7 +124,7 @@ include_once __DIR__ . '/../layouts/header.php';
         params.append('page', page);
         params.append('limit', porPagina);
 
-        fetch(`/produmar/supervisor/ordenesList?${params.toString()}`)
+        fetch(`/proyecto/supervisor/ordenesList?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 const tbody = document.getElementById('ordenesBody');
@@ -134,22 +134,24 @@ include_once __DIR__ . '/../layouts/header.php';
                     data.ordenes.forEach(orden => {
                         const tr = document.createElement('tr');
                         const prioridadClass = {
-                            'baja': 'info',
-                            'media': 'warning',
-                            'alta': 'danger',
-                            'urgente': 'danger'
+                            'Baja': 'info',
+                            'Media': 'warning',
+                            'Alta': 'danger',
+                            'Urgente': 'danger'
                         }[orden.prioridad] || 'secondary';
 
                         const estadoClass = {
-                            'pendiente': 'warning',
-                            'en_progreso': 'info',
-                            'completada': 'success',
-                            'cancelada': 'danger'
+                            'PENDIENTE': 'warning',
+                            'EN_PROCESO': 'info',
+                            'CERRADA': 'success',
+                            'APROBADA': 'success',
+                            'CANCELADA': 'danger',
+                            'RECHAZADA': 'danger'
                         }[orden.estado] || 'secondary';
 
                         const supervisionBadge = orden.supervision_estado ? 
-                            `<span class="badge bg-${orden.supervision_estado === 'aprobada' ? 'success' : 
-                                                    orden.supervision_estado === 'rechazada' ? 'danger' : 'warning'}">
+                            `<span class="badge bg-${orden.supervision_estado === 'APROBADA' ? 'success' : 
+                                                    orden.supervision_estado === 'RECHAZADA' ? 'danger' : 'warning'}">
                                 ${orden.supervision_estado}
                             </span>` : 
                             '<span class="badge bg-secondary">Sin revisar</span>';
@@ -163,11 +165,11 @@ include_once __DIR__ . '/../layouts/header.php';
                             <td>${orden.fecha_creacion}</td>
                             <td>${supervisionBadge}</td>
                             <td>
-                                <a href="/produmar/supervisor/ver_orden/${orden.id}" class="btn btn-sm btn-info">
+                                <a href="/proyecto/supervisor/ver_orden/${orden.id}" class="btn btn-sm btn-info">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                ${orden.estado === 'completada' && orden.supervision_estado !== 'aprobada' ? 
-                                    `<a href="/produmar/supervisor/revisar/${orden.id}" class="btn btn-sm btn-primary">
+                                ${orden.estado === 'CERRADA' && orden.supervision_estado !== 'APROBADA' ? 
+                                    `<a href="/proyecto/supervisor/revisar/${orden.id}" class="btn btn-sm btn-primary">
                                         <i class="bi bi-clipboard-check"></i>
                                     </a>` : ''}
                             </td>

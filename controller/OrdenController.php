@@ -1,6 +1,6 @@
 <?php
 // controller/OrdenController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\OrdenController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\OrdenController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -22,7 +22,7 @@ class OrdenController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
@@ -153,7 +153,7 @@ class OrdenController extends Controller {
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para crear órdenes';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
         }
         
         try {
@@ -203,7 +203,7 @@ class OrdenController extends Controller {
         // Verificar permisos
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para crear órdenes';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
         }
         
         // Obtener datos del formulario
@@ -231,7 +231,7 @@ class OrdenController extends Controller {
         // Validar datos obligatorios
         if (empty($datos['num_om']) || empty($datos['titulo']) || empty($datos['descripcion_mantenimiento'])) {
             $_SESSION['error'] = 'Número de orden, título y descripción son obligatorios';
-            $this->redirect('/produmar/ordenes/crear');
+            $this->redirect('/proyecto/ordenes/crear');
         }
         
         try {
@@ -239,7 +239,7 @@ class OrdenController extends Controller {
             $existe = $this->ordenModel->obtenerPorNumOM($datos['num_om']);
             if ($existe) {
                 $_SESSION['error'] = 'El número de orden ya existe. Por favor, genera uno nuevo.';
-                $this->redirect('/produmar/ordenes/crear');
+                $this->redirect('/proyecto/ordenes/crear');
             }
             
             $id = $this->ordenModel->crear($datos);
@@ -255,34 +255,36 @@ class OrdenController extends Controller {
                 }
                 
                 $_SESSION['success'] = 'Orden de trabajo creada exitosamente. N° ' . $datos['num_om'];
-                $this->redirect('/produmar/ordenes/ver/' . $id);
+                $this->redirect('/proyecto/ordenes/ver/' . $id);
             } else {
                 $_SESSION['error'] = 'Error al crear la orden de trabajo';
-                $this->redirect('/produmar/ordenes/crear');
+                $this->redirect('/proyecto/ordenes/crear');
             }
             
         } catch (Exception $e) {
             error_log("Error en guardar orden: " . $e->getMessage());
             $_SESSION['error'] = 'Error al crear la orden: ' . $e->getMessage();
-            $this->redirect('/produmar/ordenes/crear');
+            $this->redirect('/proyecto/ordenes/crear');
         }
     }
 
     /**
-     * Formulario para editar orden de trabajo
+     * Formulario para editar orden de trabajo - CORREGIDO
      * URL: /ordenes/editar/{id}
      */
     public function editar($id) {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         // Verificar permisos
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para editar órdenes';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -290,13 +292,15 @@ class OrdenController extends Controller {
             
             if (!$orden) {
                 $_SESSION['error'] = 'Orden no encontrada';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             // Verificar que la orden no esté cerrada o cancelada
             if ($orden['status'] === 'CERRADA' || $orden['status'] === 'CANCELADA' || $orden['status'] === 'APROBADA') {
                 $_SESSION['error'] = 'No se puede editar una orden cerrada, cancelada o aprobada';
-                $this->redirect('/produmar/ordenes/ver/' . $id);
+                $this->redirect('/proyecto/ordenes/ver/' . $id);
+                return;
             }
             
             $plantas = $this->plantasModel->obtenerTodos();
@@ -310,6 +314,9 @@ class OrdenController extends Controller {
             // Obtener repuestos de la orden
             $repuestos_orden = $this->obtenerRepuestosOrden($id);
             
+            // Obtener técnicos adicionales de la orden
+            $tecnicos_orden = $this->obtenerTecnicosOrden($id);
+            
         } catch (Exception $e) {
             error_log("Error en OrdenController editar: " . $e->getMessage());
             $orden = null;
@@ -321,7 +328,10 @@ class OrdenController extends Controller {
             $supervisores = [];
             $repuestos = [];
             $repuestos_orden = [];
+            $tecnicos_orden = [];
             $_SESSION['error'] = 'Error al cargar el formulario: ' . $e->getMessage();
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         $this->view('ordenes/editar', [
@@ -333,7 +343,8 @@ class OrdenController extends Controller {
             'tecnicos' => $tecnicos,
             'supervisores' => $supervisores,
             'repuestos' => $repuestos,
-            'repuestos_orden' => $repuestos_orden
+            'repuestos_orden' => $repuestos_orden,
+            'tecnicos_orden' => $tecnicos_orden
         ]);
     }
 
@@ -347,13 +358,15 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         // Verificar permisos
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para editar órdenes';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         $datos = [
@@ -379,7 +392,8 @@ class OrdenController extends Controller {
         
         if (empty($datos['titulo']) || empty($datos['descripcion_mantenimiento'])) {
             $_SESSION['error'] = 'Título y descripción son obligatorios';
-            $this->redirect('/produmar/ordenes/editar/' . $id);
+            $this->redirect('/proyecto/ordenes/editar/' . $id);
+            return;
         }
         
         try {
@@ -387,16 +401,16 @@ class OrdenController extends Controller {
             
             if ($resultado) {
                 $_SESSION['success'] = 'Orden actualizada correctamente';
-                $this->redirect('/produmar/ordenes/ver/' . $id);
+                $this->redirect('/proyecto/ordenes/ver/' . $id);
             } else {
                 $_SESSION['error'] = 'Error al actualizar la orden';
-                $this->redirect('/produmar/ordenes/editar/' . $id);
+                $this->redirect('/proyecto/ordenes/editar/' . $id);
             }
             
         } catch (Exception $e) {
             error_log("Error en actualizar orden: " . $e->getMessage());
             $_SESSION['error'] = 'Error al actualizar la orden: ' . $e->getMessage();
-            $this->redirect('/produmar/ordenes/editar/' . $id);
+            $this->redirect('/proyecto/ordenes/editar/' . $id);
         }
     }
 
@@ -408,7 +422,8 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -416,14 +431,16 @@ class OrdenController extends Controller {
             
             if (!$orden) {
                 $_SESSION['error'] = 'Orden no encontrada';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             // Verificar permisos de acceso
             $rol = $this->authHelper->getRole();
             if ($rol === 'tecnico' && $orden['tecnico_id'] != $this->authHelper->getUserId()) {
                 $_SESSION['error'] = 'No tienes permiso para ver esta orden';
-                $this->redirect('/produmar/tecnico/mis_ordenes');
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
+                return;
             }
             
             // Obtener repuestos de la orden
@@ -442,7 +459,8 @@ class OrdenController extends Controller {
             $historial = [];
             $documentos = [];
             $_SESSION['error'] = 'Error al cargar la orden: ' . $e->getMessage();
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         $this->view('ordenes/ver', [
@@ -461,7 +479,8 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -469,26 +488,30 @@ class OrdenController extends Controller {
             
             if (!$orden) {
                 $_SESSION['error'] = 'Orden no encontrada';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             // Verificar permisos
             $rol = $this->authHelper->getRole();
             if ($rol === 'tecnico' && $orden['tecnico_id'] != $this->authHelper->getUserId()) {
                 $_SESSION['error'] = 'No tienes permiso para cerrar esta orden';
-                $this->redirect('/produmar/tecnico/mis_ordenes');
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
+                return;
             }
             
             // Verificar que la orden esté en un estado válido
             if ($orden['status'] === 'CERRADA' || $orden['status'] === 'CANCELADA') {
                 $_SESSION['error'] = 'Esta orden ya está cerrada o cancelada';
-                $this->redirect('/produmar/ordenes/ver/' . $id);
+                $this->redirect('/proyecto/ordenes/ver/' . $id);
+                return;
             }
             
         } catch (Exception $e) {
             error_log("Error en OrdenController cerrar: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar la orden: ' . $e->getMessage();
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         $this->view('ordenes/cerrar', ['orden' => $orden]);
@@ -504,7 +527,8 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -512,14 +536,16 @@ class OrdenController extends Controller {
             
             if (!$orden) {
                 $_SESSION['error'] = 'Orden no encontrada';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             // Verificar permisos
             $rol = $this->authHelper->getRole();
             if ($rol === 'tecnico' && $orden['tecnico_id'] != $this->authHelper->getUserId()) {
                 $_SESSION['error'] = 'No tienes permiso para cerrar esta orden';
-                $this->redirect('/produmar/tecnico/mis_ordenes');
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
+                return;
             }
             
             $datos = [
@@ -538,7 +564,8 @@ class OrdenController extends Controller {
             
             if (empty($datos['descripcion_realizada'])) {
                 $_SESSION['error'] = 'La descripción del trabajo realizado es obligatoria';
-                $this->redirect('/produmar/ordenes/cerrar/' . $id);
+                $this->redirect('/proyecto/ordenes/cerrar/' . $id);
+                return;
             }
             
             // Calcular costos
@@ -563,16 +590,16 @@ class OrdenController extends Controller {
                 $this->guardarHistorial($id, $datos, 'CERRADA');
                 
                 $_SESSION['success'] = 'Orden cerrada exitosamente';
-                $this->redirect('/produmar/ordenes/ver/' . $id);
+                $this->redirect('/proyecto/ordenes/ver/' . $id);
             } else {
                 $_SESSION['error'] = 'Error al cerrar la orden';
-                $this->redirect('/produmar/ordenes/cerrar/' . $id);
+                $this->redirect('/proyecto/ordenes/cerrar/' . $id);
             }
             
         } catch (Exception $e) {
             error_log("Error en procesar_cierre: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cerrar la orden: ' . $e->getMessage();
-            $this->redirect('/produmar/ordenes/cerrar/' . $id);
+            $this->redirect('/proyecto/ordenes/cerrar/' . $id);
         }
     }
 
@@ -639,6 +666,7 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $this->jsonResponse(['error' => 'ID de orden inválido'], 400);
+            return;
         }
         
         try {
@@ -646,12 +674,14 @@ class OrdenController extends Controller {
             
             if (!$orden) {
                 $this->jsonResponse(['error' => 'Orden no encontrada'], 404);
+                return;
             }
             
             // Verificar permisos
             $rol = $this->authHelper->getRole();
             if ($rol === 'tecnico' && $orden['tecnico_id'] != $this->authHelper->getUserId()) {
                 $this->jsonResponse(['error' => 'No tienes permiso para ver esta orden'], 403);
+                return;
             }
             
             $this->jsonResponse($orden);
@@ -672,13 +702,15 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         // Verificar permisos (solo admin)
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para eliminar órdenes';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -686,13 +718,15 @@ class OrdenController extends Controller {
             
             if (!$orden) {
                 $_SESSION['error'] = 'Orden no encontrada';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             // Verificar que la orden esté pendiente
             if ($orden['status'] !== 'PENDIENTE') {
                 $_SESSION['error'] = 'Solo se pueden eliminar órdenes en estado PENDIENTE';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             $resultado = $this->ordenModel->eliminar($id);
@@ -720,7 +754,7 @@ class OrdenController extends Controller {
             $_SESSION['error'] = 'Error al eliminar la orden: ' . $e->getMessage();
         }
         
-        $this->redirect('/produmar/ordenes');
+        $this->redirect('/proyecto/ordenes');
     }
 
     /**
@@ -733,13 +767,15 @@ class OrdenController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de orden inválido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para cambiar el estado';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         $estado = $this->post('estado', '');
@@ -747,7 +783,8 @@ class OrdenController extends Controller {
         
         if (empty($estado)) {
             $_SESSION['error'] = 'Estado no válido';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -755,14 +792,16 @@ class OrdenController extends Controller {
             $orden = $this->ordenModel->obtenerPorId($id);
             if (!$orden) {
                 $_SESSION['error'] = 'Orden no encontrada';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             // Verificar transiciones válidas
             $estadosValidos = ['PENDIENTE', 'EN_PROCESO', 'EJECUTADA', 'CERRADA', 'CANCELADA', 'APROBADA', 'RECHAZADA'];
             if (!in_array($estado, $estadosValidos)) {
                 $_SESSION['error'] = 'Estado no válido';
-                $this->redirect('/produmar/ordenes');
+                $this->redirect('/proyecto/ordenes');
+                return;
             }
             
             $resultado = $this->ordenModel->cambiarEstado($id, $estado, $observaciones);
@@ -781,7 +820,7 @@ class OrdenController extends Controller {
             $_SESSION['error'] = 'Error al cambiar el estado: ' . $e->getMessage();
         }
         
-        $this->redirect('/produmar/ordenes/ver/' . $id);
+        $this->redirect('/proyecto/ordenes/ver/' . $id);
     }
 
     /**
@@ -796,13 +835,15 @@ class OrdenController extends Controller {
         
         if ($ordenId <= 0 || $tecnicoId <= 0) {
             $_SESSION['error'] = 'Datos inválidos';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para asignar técnicos';
-            $this->redirect('/produmar/ordenes');
+            $this->redirect('/proyecto/ordenes');
+            return;
         }
         
         try {
@@ -822,7 +863,7 @@ class OrdenController extends Controller {
             $_SESSION['error'] = 'Error al asignar el técnico: ' . $e->getMessage();
         }
         
-        $this->redirect('/produmar/ordenes/ver/' . $ordenId);
+        $this->redirect('/proyecto/ordenes/ver/' . $ordenId);
     }
 
     // ==========================================
@@ -874,6 +915,21 @@ class OrdenController extends Controller {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en obtenerRepuestosOrden: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Obtener técnicos adicionales de una orden
+     */
+    private function obtenerTecnicosOrden($orden_id) {
+        try {
+            $sql = "SELECT * FROM ordenes_tecnicos WHERE orden_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$orden_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en obtenerTecnicosOrden: " . $e->getMessage());
             return [];
         }
     }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($titulo) ? htmlspecialchars($titulo) : 'Dashboard - PRODUMAR' ?></title>
+    <title><?= isset($titulo) ? htmlspecialchars($titulo) : 'Dashboard - PROYECTO' ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
     <style>
@@ -152,32 +152,32 @@
 
                 <!-- Menú rápido -->
                 <div class="menu-grid">
-                    <a href="/produmar/ordenes" class="menu-item primary">
+                    <a href="/proyecto/ordenes" class="menu-item primary">
                         <i class="fas fa-clipboard-list"></i>
                         <div class="title">Órdenes</div>
                         <div class="desc">Gestionar órdenes de mantenimiento</div>
                     </a>
-                    <a href="/produmar/tecnicos" class="menu-item success">
+                    <a href="/proyecto/tecnicos" class="menu-item success">
                         <i class="fas fa-users"></i>
                         <div class="title">Técnicos</div>
                         <div class="desc">Gestionar técnicos</div>
                     </a>
-                    <a href="/produmar/supervisores" class="menu-item warning">
+                    <a href="/proyecto/supervisores" class="menu-item warning">
                         <i class="fas fa-user-tie"></i>
                         <div class="title">Supervisores</div>
                         <div class="desc">Gestionar supervisores</div>
                     </a>
-                    <a href="/produmar/inventario" class="menu-item info">
+                    <a href="/proyecto/inventario" class="menu-item info">
                         <i class="fas fa-boxes"></i>
                         <div class="title">Inventario</div>
                         <div class="desc">Gestionar repuestos</div>
                     </a>
-                    <a href="/produmar/reportes" class="menu-item purple">
+                    <a href="/proyecto/reportes" class="menu-item purple">
                         <i class="fas fa-chart-bar"></i>
                         <div class="title">Reportes</div>
                         <div class="desc">Ver reportes y estadísticas</div>
                     </a>
-                    <a href="/produmar/supervision" class="menu-item danger">
+                    <a href="/proyecto/supervision" class="menu-item danger">
                         <i class="fas fa-eye"></i>
                         <div class="title">Supervisión</div>
                         <div class="desc">Supervisar órdenes</div>
@@ -214,7 +214,7 @@
                                                         </td>
                                                         <td><?= date('d/m/Y', strtotime($orden['fecha_creacion'])) ?></td>
                                                         <td>
-                                                            <a href="/produmar/ordenes/ver/<?= $orden['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></a>
+                                                            <a href="/proyecto/ordenes/ver/<?= $orden['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></a>
                                                         </td>
                                                     </tr>
                                                 <?php endforeach; ?>

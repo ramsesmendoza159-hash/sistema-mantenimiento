@@ -1,6 +1,6 @@
 <?php
 // controller/TecnicosController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\TecnicosController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\TecnicosController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -14,14 +14,14 @@ class TecnicosController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar rol de administrador
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -80,17 +80,17 @@ class TecnicosController extends Controller {
         
         if (empty($nombre) || empty($email) || empty($password)) {
             $_SESSION['error'] = 'Nombre, email y contraseña son obligatorios';
-            $this->redirect('/produmar/tecnicos/crear');
+            $this->redirect('/proyecto/tecnicos/crear');
         }
         
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/produmar/tecnicos/crear');
+            $this->redirect('/proyecto/tecnicos/crear');
         }
         
         if (strlen($password) < 6) {
             $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-            $this->redirect('/produmar/tecnicos/crear');
+            $this->redirect('/proyecto/tecnicos/crear');
         }
         
         try {
@@ -101,7 +101,7 @@ class TecnicosController extends Controller {
             $existente = $model->obtenerPorEmail($email);
             if ($existente) {
                 $_SESSION['error'] = 'El email ya está registrado';
-                $this->redirect('/produmar/tecnicos/crear');
+                $this->redirect('/proyecto/tecnicos/crear');
             }
             
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
@@ -119,16 +119,16 @@ class TecnicosController extends Controller {
             
             if ($resultado) {
                 $_SESSION['success'] = 'Técnico creado correctamente';
-                $this->redirect('/produmar/tecnicos');
+                $this->redirect('/proyecto/tecnicos');
             } else {
                 $_SESSION['error'] = 'Error al crear el técnico';
-                $this->redirect('/produmar/tecnicos/crear');
+                $this->redirect('/proyecto/tecnicos/crear');
             }
             
         } catch (Exception $e) {
             error_log("Error en guardar tecnico: " . $e->getMessage());
             $_SESSION['error'] = 'Error al crear el técnico: ' . $e->getMessage();
-            $this->redirect('/produmar/tecnicos/crear');
+            $this->redirect('/proyecto/tecnicos/crear');
         }
     }
 
@@ -144,7 +144,7 @@ class TecnicosController extends Controller {
             
             if (!$tecnico) {
                 $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/produmar/tecnicos');
+                $this->redirect('/proyecto/tecnicos');
             }
             
             $this->view('tecnicos/editar', [
@@ -155,7 +155,7 @@ class TecnicosController extends Controller {
         } catch (Exception $e) {
             error_log("Error en editar tecnico: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar el técnico';
-            $this->redirect('/produmar/tecnicos');
+            $this->redirect('/proyecto/tecnicos');
         }
     }
 
@@ -175,12 +175,12 @@ class TecnicosController extends Controller {
         
         if (empty($nombre) || empty($email)) {
             $_SESSION['error'] = 'Nombre y email son obligatorios';
-            $this->redirect('/produmar/tecnicos/editar/' . $id);
+            $this->redirect('/proyecto/tecnicos/editar/' . $id);
         }
         
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/produmar/tecnicos/editar/' . $id);
+            $this->redirect('/proyecto/tecnicos/editar/' . $id);
         }
         
         try {
@@ -191,7 +191,7 @@ class TecnicosController extends Controller {
             $existente = $model->obtenerPorEmail($email);
             if ($existente && $existente['id'] != $id) {
                 $_SESSION['error'] = 'El email ya está registrado por otro usuario';
-                $this->redirect('/produmar/tecnicos/editar/' . $id);
+                $this->redirect('/proyecto/tecnicos/editar/' . $id);
             }
             
             $datos = [
@@ -208,7 +208,7 @@ class TecnicosController extends Controller {
             if (!empty($password)) {
                 if (strlen($password) < 6) {
                     $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-                    $this->redirect('/produmar/tecnicos/editar/' . $id);
+                    $this->redirect('/proyecto/tecnicos/editar/' . $id);
                 }
                 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
                 $model->actualizarPassword($id, $passwordHash);
@@ -225,7 +225,7 @@ class TecnicosController extends Controller {
             $_SESSION['error'] = 'Error al actualizar el técnico: ' . $e->getMessage();
         }
         
-        $this->redirect('/produmar/tecnicos');
+        $this->redirect('/proyecto/tecnicos');
     }
 
     /**
@@ -251,7 +251,7 @@ class TecnicosController extends Controller {
             $_SESSION['error'] = 'Error al eliminar el técnico';
         }
         
-        $this->redirect('/produmar/tecnicos');
+        $this->redirect('/proyecto/tecnicos');
     }
 
     /**
@@ -279,6 +279,6 @@ class TecnicosController extends Controller {
             $_SESSION['error'] = 'Error al cambiar el estado del técnico';
         }
         
-        $this->redirect('/produmar/tecnicos');
+        $this->redirect('/proyecto/tecnicos');
     }
 }

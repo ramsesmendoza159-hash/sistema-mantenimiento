@@ -1,7 +1,14 @@
 <?php
-session_start();
+// views/supervisor/editar_supervision.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\supervisor\editar_supervision.php
+
+// ✅ Verificar si la sesión ya está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -11,13 +18,13 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $supervision = $supervision ?? null;
 if (!$supervision) {
-    header('Location: /produmar/supervisor/supervisiones');
+    header('Location: /proyecto/supervisor/supervisiones');
     exit();
 }
 
 // Verificar que la supervisión pertenezca al supervisor actual
 if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
-    header('Location: /produmar/supervisor/supervisiones');
+    header('Location: /proyecto/supervisor/supervisiones');
     exit();
 }
 ?>
@@ -29,7 +36,7 @@ if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Editar Supervisión #<?php echo $supervision['id']; ?></h1>
-                <a href="/produmar/supervisor/supervisiones" class="btn btn-secondary">
+                <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
@@ -41,7 +48,7 @@ if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
                             <h5 class="mb-0">Editar Revisión</h5>
                         </div>
                         <div class="card-body">
-                            <form action="/produmar/supervisor/actualizar_supervision/<?php echo $supervision['id']; ?>" method="POST">
+                            <form action="/proyecto/supervisor/actualizar_supervision/<?php echo $supervision['id']; ?>" method="POST">
                                 <input type="hidden" name="_method" value="PUT">
                                 <input type="hidden" name="orden_id" value="<?php echo $supervision['orden_id']; ?>">
                                 
@@ -61,8 +68,8 @@ if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
                                     <label for="estado" class="form-label">Decisión *</label>
                                     <select class="form-select" id="estado" name="estado" required>
                                         <option value="">Seleccionar...</option>
-                                        <option value="aprobada" <?php echo $supervision['estado'] === 'aprobada' ? 'selected' : ''; ?>>✅ Aprobar</option>
-                                        <option value="rechazada" <?php echo $supervision['estado'] === 'rechazada' ? 'selected' : ''; ?>>❌ Rechazar</option>
+                                        <option value="APROBADA" <?php echo $supervision['estado'] === 'APROBADA' ? 'selected' : ''; ?>>✅ Aprobar</option>
+                                        <option value="RECHAZADA" <?php echo $supervision['estado'] === 'RECHAZADA' ? 'selected' : ''; ?>>❌ Rechazar</option>
                                     </select>
                                 </div>
 
@@ -82,7 +89,7 @@ if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
 
                                 <hr>
                                 <div class="d-flex justify-content-end">
-                                    <a href="/produmar/supervisor/supervisiones" class="btn btn-secondary me-2">
+                                    <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary me-2">
                                         Cancelar
                                     </a>
                                     <button type="submit" class="btn btn-primary">
@@ -105,12 +112,15 @@ if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
                                 <p><strong>Título:</strong> <?php echo htmlspecialchars($supervision['orden']['titulo']); ?></p>
                                 <p><strong>Técnico:</strong> <?php echo $supervision['orden']['tecnico'] ?? 'N/A'; ?></p>
                                 <p><strong>Prioridad:</strong> 
-                                    <span class="badge bg-<?php echo $supervision['orden']['prioridad'] === 'urgente' ? 'danger' : 
-                                                             ($supervision['orden']['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
-                                        <?php echo $supervision['orden']['prioridad']; ?>
+                                    <span class="badge bg-<?php 
+                                        $prioridad = $supervision['orden']['prioridad'] ?? 'Media';
+                                        echo $prioridad === 'Urgente' ? 'danger' : 
+                                             ($prioridad === 'Alta' ? 'warning' : 'info'); 
+                                    ?>">
+                                        <?php echo $prioridad; ?>
                                     </span>
                                 </p>
-                                <a href="/produmar/supervisor/ver_orden/<?php echo $supervision['orden_id']; ?>" class="btn btn-sm btn-info w-100">
+                                <a href="/proyecto/supervisor/ver_orden/<?php echo $supervision['orden_id']; ?>" class="btn btn-sm btn-info w-100">
                                     <i class="bi bi-eye"></i> Ver Orden
                                 </a>
                             <?php else: ?>
@@ -126,9 +136,12 @@ if ($supervision['supervisor_id'] != $_SESSION['usuario_id']) {
                         <div class="card-body">
                             <p><strong>Fecha creación:</strong> <?php echo $supervision['fecha_creacion']; ?></p>
                             <p><strong>Estado actual:</strong> 
-                                <span class="badge bg-<?php echo $supervision['estado'] === 'aprobada' ? 'success' : 
-                                                         ($supervision['estado'] === 'rechazada' ? 'danger' : 'warning'); ?>">
-                                    <?php echo $supervision['estado']; ?>
+                                <span class="badge bg-<?php 
+                                    $estado = $supervision['estado'] ?? 'PENDIENTE';
+                                    echo $estado === 'APROBADA' ? 'success' : 
+                                         ($estado === 'RECHAZADA' ? 'danger' : 'warning'); 
+                                ?>">
+                                    <?php echo $estado; ?>
                                 </span>
                             </p>
                         </div>

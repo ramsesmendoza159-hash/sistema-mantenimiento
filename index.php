@@ -1,6 +1,6 @@
 <?php
 // index.php - Raíz del proyecto
-// Ubicación: C:\xampp\htdocs\produmar\index.php
+// Ubicación: C:\xampp\htdocs\proyecto\index.php
 
 // ==========================================
 // INICIAR SESIÓN
@@ -15,7 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // ==========================================
 
 require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/helpers/AuthHelper.php';
+// AuthHelper ya está incluido en Controller.php
 require_once __DIR__ . '/helpers/Controller.php';
 
 // ==========================================
@@ -24,7 +24,7 @@ require_once __DIR__ . '/helpers/Controller.php';
 
 // Si la URL está vacía, redirigir a login
 if (empty($_GET) || !isset($_GET['controller'])) {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/?controller=auth&action=login');
     exit();
 }
 

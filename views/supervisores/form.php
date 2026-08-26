@@ -86,7 +86,18 @@
                         <?php unset($_SESSION['error']); ?>
                     <?php endif; ?>
 
-                    <form action="<?= isset($accion) && $accion == 'crear' ? '/produmar/supervisores/crear' : '/produmar/supervisores/editar/' . (isset($supervisor['id']) ? $supervisor['id'] : '') ?>" method="POST" id="formSupervisor" novalidate>
+                    <!-- ✅ CORREGIDO: Action del formulario -->
+                    <?php
+                    if (isset($accion) && $accion == 'crear') {
+                        $actionUrl = '/proyecto/supervisores/guardar';
+                    } else {
+                        $actionUrl = '/proyecto/supervisores/actualizar/' . (isset($supervisor['id']) ? $supervisor['id'] : '');
+                    }
+                    ?>
+                    <form action="<?php echo $actionUrl; ?>" method="POST" id="formSupervisor" novalidate>
+                        <?php if (isset($accion) && $accion == 'editar'): ?>
+                            <input type="hidden" name="_method" value="PUT">
+                        <?php endif; ?>
                         
                         <div class="row">
                             <div class="col-md-6">
@@ -104,7 +115,7 @@
                                     <label for="email" class="required">Email</label>
                                     <input type="email" name="email" id="email" class="form-control" 
                                            value="<?= isset($supervisor['email']) ? htmlspecialchars($supervisor['email']) : '' ?>" 
-                                           required maxlength="100" placeholder="ejemplo@produmar.com">
+                                           required maxlength="100" placeholder="ejemplo@proyecto.com">
                                     <small class="help-text"><i class="fas fa-info-circle"></i> El email debe ser único en el sistema</small>
                                     <div class="error-text" id="email-error"></div>
                                 </div>
@@ -176,7 +187,7 @@
                                 <i class="fas fa-save"></i> 
                                 <?= isset($accion) && $accion == 'crear' ? 'Guardar Supervisor' : 'Actualizar Supervisor' ?>
                             </button>
-                            <a href="/produmar/supervisores" class="btn btn-secondary">
+                            <a href="/proyecto/supervisores" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Cancelar
                             </a>
                         </div>

@@ -1,6 +1,6 @@
 <?php
 // views/admin/gestion_ordenes.php
-// Ubicación: C:\xampp\htdocs\produmar\views\admin\gestion_ordenes.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\admin\gestion_ordenes.php
 
 // Asegurar que las variables existan
 $ordenes = $ordenes ?? [];
@@ -8,6 +8,7 @@ $tecnicos = $tecnicos ?? [];
 $totalPages = $totalPages ?? 0;
 $page = $page ?? 1;
 $total = $total ?? 0;
+$rol = $rol ?? 'usuario';
 
 $titulo = "Gestión de Órdenes";
 $seccion = "ordenes";
@@ -22,7 +23,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2"><i class="fas fa-clipboard-list"></i> Gestión de Órdenes</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
-                    <a href="/produmar/ordenes/crear" class="btn btn-primary">
+                    <a href="/proyecto/ordenes/crear" class="btn btn-primary">
                         <i class="fas fa-plus-circle"></i> Nueva Orden
                     </a>
                 </div>
@@ -48,7 +49,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <!-- Filtros -->
             <div class="card mb-4">
                 <div class="card-body">
-                    <form method="GET" action="/produmar/admin/gestion_ordenes" class="row g-3 align-items-end">
+                    <form method="GET" action="/proyecto/admin/gestion_ordenes" class="row g-3 align-items-end">
                         <div class="col-md-3">
                             <label for="buscar" class="form-label"><i class="fas fa-search"></i> Buscar</label>
                             <input type="text" name="buscar" id="buscar" class="form-control" 
@@ -98,7 +99,7 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                         <div class="col-md-3 d-flex gap-2">
                             <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search"></i> Filtrar</button>
-                            <a href="/produmar/admin/gestion_ordenes" class="btn btn-secondary w-100"><i class="fas fa-undo"></i> Limpiar</a>
+                            <a href="/proyecto/admin/gestion_ordenes" class="btn btn-secondary w-100"><i class="fas fa-undo"></i> Limpiar</a>
                         </div>
                     </form>
                 </div>
@@ -174,22 +175,46 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <td><?= isset($orden['fecha_creacion']) ? date('d/m/Y', strtotime($orden['fecha_creacion'])) : '-' ?></td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="/produmar/ordenes/ver/<?= $orden['id'] ?>" class="btn btn-sm btn-primary" title="Ver">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <a href="/produmar/ordenes/editar/<?= $orden['id'] ?>" class="btn btn-sm btn-warning" title="Editar">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <?php if (($orden['status'] ?? '') == 'PENDIENTE' || ($orden['status'] ?? '') == 'EN_PROCESO'): ?>
-                                                        <a href="/produmar/ordenes/cerrar/<?= $orden['id'] ?>" class="btn btn-sm btn-success" title="Cerrar">
-                                                            <i class="fas fa-check-circle"></i>
+                                                    <!-- Ver - CORREGIDO con ID seguro -->
+                                                    <?php $ordenId = $orden['id'] ?? 0; ?>
+                                                    <?php if ($ordenId > 0): ?>
+                                                        <a href="/proyecto/ordenes/ver/<?= $ordenId ?>" class="btn btn-sm btn-primary" title="Ver">
+                                                            <i class="fas fa-eye"></i>
                                                         </a>
+                                                    <?php else: ?>
+                                                        <span class="btn btn-sm btn-secondary disabled" title="ID no disponible">
+                                                            <i class="fas fa-eye"></i>
+                                                        </span>
                                                     <?php endif; ?>
-                                                    <?php if (($orden['status'] ?? '') == 'PENDIENTE'): ?>
-                                                        <button class="btn btn-sm btn-danger" title="Eliminar" 
-                                                                data-bs-toggle="modal" data-bs-target="#modalEliminar<?= $orden['id'] ?>">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
+                                                    
+                                                    <!-- Editar - ADMIN siempre puede editar, SUPERVISOR solo si no está cerrada/cancelada/aprobada -->
+                                                    <?php if ($ordenId > 0): ?>
+                                                        <?php if ($rol === 'admin'): ?>
+                                                            <a href="/proyecto/ordenes/editar/<?= $ordenId ?>" class="btn btn-sm btn-warning" title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                        <?php elseif ($rol === 'supervisor' && $orden['status'] !== 'CERRADA' && $orden['status'] !== 'CANCELADA' && $orden['status'] !== 'APROBADA'): ?>
+                                                            <a href="/proyecto/ordenes/editar/<?= $ordenId ?>" class="btn btn-sm btn-warning" title="Editar">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                        <?php endif; ?>
+                                                        
+                                                        <!-- Cerrar -->
+                                                        <?php if (($orden['status'] ?? '') == 'PENDIENTE' || ($orden['status'] ?? '') == 'EN_PROCESO'): ?>
+                                                            <?php if ($rol === 'admin' || $rol === 'supervisor'): ?>
+                                                                <a href="/proyecto/ordenes/cerrar/<?= $ordenId ?>" class="btn btn-sm btn-success" title="Cerrar">
+                                                                    <i class="fas fa-check-circle"></i>
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
+                                                        
+                                                        <!-- Eliminar -->
+                                                        <?php if (($orden['status'] ?? '') == 'PENDIENTE' && $rol === 'admin'): ?>
+                                                            <button class="btn btn-sm btn-danger" title="Eliminar" 
+                                                                    data-bs-toggle="modal" data-bs-target="#modalEliminar<?= $ordenId ?>">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
@@ -227,11 +252,12 @@ include_once __DIR__ . '/../layouts/header.php';
 <!-- Modales Eliminar -->
 <?php if (!empty($ordenes)): ?>
     <?php foreach ($ordenes as $orden): ?>
-        <?php if (($orden['status'] ?? '') == 'PENDIENTE'): ?>
-            <div class="modal fade" id="modalEliminar<?= $orden['id'] ?>" tabindex="-1" aria-hidden="true">
+        <?php $ordenId = $orden['id'] ?? 0; ?>
+        <?php if (($orden['status'] ?? '') == 'PENDIENTE' && $ordenId > 0): ?>
+            <div class="modal fade" id="modalEliminar<?= $ordenId ?>" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <form action="/produmar/ordenes/eliminar/<?= $orden['id'] ?>" method="POST">
+                        <form action="/proyecto/ordenes/eliminar/<?= $ordenId ?>" method="POST">
                             <div class="modal-header bg-danger text-white">
                                 <h5 class="modal-title"><i class="fas fa-trash"></i> Eliminar Orden</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>

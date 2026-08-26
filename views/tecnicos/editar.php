@@ -1,5 +1,6 @@
 <?php
 // views/tecnicos/editar.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\tecnicos\editar.php
 
 $titulo = "Editar Técnico";
 $seccion = "tecnicos";
@@ -7,7 +8,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $tecnico = $tecnico ?? null;
 if (!$tecnico) {
-    header('Location: /produmar/tecnicos');
+    header('Location: /proyecto/tecnicos');
     exit();
 }
 ?>
@@ -19,7 +20,7 @@ if (!$tecnico) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2"><i class="fas fa-user-edit"></i> Editar Técnico</h1>
-                <a href="/produmar/tecnicos" class="btn btn-secondary">
+                <a href="/proyecto/tecnicos" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Volver
                 </a>
             </div>
@@ -35,7 +36,7 @@ if (!$tecnico) {
 
             <div class="card">
                 <div class="card-body">
-                    <form action="/produmar/tecnicos/actualizar/<?php echo $tecnico['id']; ?>" method="POST">
+                    <form action="/proyecto/tecnicos/actualizar/<?php echo $tecnico['id']; ?>" method="POST">
                         <input type="hidden" name="_method" value="PUT">
                         
                         <div class="row">
@@ -95,7 +96,7 @@ if (!$tecnico) {
 
                         <hr>
                         <div class="d-flex justify-content-end">
-                            <a href="/produmar/tecnicos" class="btn btn-secondary me-2">Cancelar</a>
+                            <a href="/proyecto/tecnicos" class="btn btn-secondary me-2">Cancelar</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Actualizar
                             </button>

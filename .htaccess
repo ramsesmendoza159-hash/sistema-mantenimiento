@@ -1,38 +1,46 @@
 # .htaccess
-# Ubicación: C:\xampp\htdocs\produmar\.htaccess
+# Ubicación: C:\xampp\htdocs\proyecto\.htaccess
 
 RewriteEngine On
-RewriteBase /produmar/
+RewriteBase /proyecto/
 
 # ==========================================
 # PERMITIR ARCHIVOS PHP EN LA RAÍZ (test_*.php, fix_*.php, generate_*.php)
 # ==========================================
-RewriteCond %{REQUEST_URI} ^/produmar/(test_|fix_|generate_).*\.php$
+RewriteCond %{REQUEST_URI} ^/proyecto/(test_|fix_|generate_).*\.php$ [NC]
+RewriteRule ^ - [L]
+
+# PERMITIR ARCHIVOS PHP ESPECÍFICOS EN LA RAÍZ
+RewriteCond %{REQUEST_URI} ^/proyecto/(generar_hashes|test_hash|test_db|diagnosticar_hashes|probar_login|resetear_password|crear_admin)\.php$ [NC]
 RewriteRule ^ - [L]
 
 # ==========================================
-# PERMITIR ARCHIVOS ESTÁTICOS (CSS, JS, IMÁGENES, ETC)
+# PERMITIR CARPETAS Y ARCHIVOS ESTÁTICOS
 # ==========================================
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# Si el archivo o carpeta existe, servir directamente
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|pdf)$ - [L]
+
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
 
 # ==========================================
 # REDIRECCIONES AMIGABLES
 # ==========================================
 
-# Autenticación
+# ---------- AUTENTICACIÓN ----------
 RewriteRule ^login$ index.php?controller=auth&action=login [QSA,L]
 RewriteRule ^auth/login$ index.php?controller=auth&action=login [QSA,L]
 RewriteRule ^auth/authenticate$ index.php?controller=auth&action=authenticate [QSA,L]
 RewriteRule ^logout$ index.php?controller=auth&action=logout [QSA,L]
 RewriteRule ^auth/logout$ index.php?controller=auth&action=logout [QSA,L]
 
-# Dashboard
+# ---------- DASHBOARD ----------
 RewriteRule ^dashboard$ index.php?controller=dashboard&action=index [QSA,L]
 RewriteRule ^admin/dashboard$ index.php?controller=admin&action=dashboard [QSA,L]
 RewriteRule ^admin/gestion_ordenes$ index.php?controller=admin&action=gestion_ordenes [QSA,L]
 
-# Supervisores (gestión - admin)
+# ---------- SUPERVISORES (Gestión - Admin) ----------
 RewriteRule ^supervisores$ index.php?controller=supervisores&action=index [QSA,L]
 RewriteRule ^supervisores/crear$ index.php?controller=supervisores&action=crear [QSA,L]
 RewriteRule ^supervisores/guardar$ index.php?controller=supervisores&action=guardar [QSA,L]
@@ -40,7 +48,7 @@ RewriteRule ^supervisores/editar/([0-9]+)$ index.php?controller=supervisores&act
 RewriteRule ^supervisores/actualizar/([0-9]+)$ index.php?controller=supervisores&action=actualizar&id=$1 [QSA,L]
 RewriteRule ^supervisores/eliminar/([0-9]+)$ index.php?controller=supervisores&action=eliminar&id=$1 [QSA,L]
 
-# Supervisor (panel propio)
+# ---------- SUPERVISOR (Panel propio) ----------
 RewriteRule ^supervisor$ index.php?controller=supervisor&action=index [QSA,L]
 RewriteRule ^supervisor/ordenes$ index.php?controller=supervisor&action=ordenes [QSA,L]
 RewriteRule ^supervisor/revisar/([0-9]+)$ index.php?controller=supervisor&action=revisar&id=$1 [QSA,L]
@@ -50,7 +58,7 @@ RewriteRule ^supervisor/ver_supervision/([0-9]+)$ index.php?controller=superviso
 RewriteRule ^supervisor/editar/([0-9]+)$ index.php?controller=supervisor&action=editar&id=$1 [QSA,L]
 RewriteRule ^supervisor/guardar_revision$ index.php?controller=supervisor&action=guardar_revision [QSA,L]
 
-# Técnicos (gestión - admin)
+# ---------- TÉCNICOS (Gestión - Admin) ----------
 RewriteRule ^tecnicos$ index.php?controller=tecnicos&action=index [QSA,L]
 RewriteRule ^tecnicos/crear$ index.php?controller=tecnicos&action=crear [QSA,L]
 RewriteRule ^tecnicos/guardar$ index.php?controller=tecnicos&action=guardar [QSA,L]
@@ -58,13 +66,13 @@ RewriteRule ^tecnicos/editar/([0-9]+)$ index.php?controller=tecnicos&action=edit
 RewriteRule ^tecnicos/actualizar/([0-9]+)$ index.php?controller=tecnicos&action=actualizar&id=$1 [QSA,L]
 RewriteRule ^tecnicos/eliminar/([0-9]+)$ index.php?controller=tecnicos&action=eliminar&id=$1 [QSA,L]
 
-# Técnico (panel propio)
+# ---------- TÉCNICO (Panel propio) ----------
 RewriteRule ^tecnico$ index.php?controller=tecnico&action=index [QSA,L]
 RewriteRule ^tecnico/mis_ordenes$ index.php?controller=tecnico&action=mis_ordenes [QSA,L]
 RewriteRule ^tecnico/detalle_orden/([0-9]+)$ index.php?controller=tecnico&action=detalle_orden&id=$1 [QSA,L]
 RewriteRule ^tecnico/cerrar_orden/([0-9]+)$ index.php?controller=tecnico&action=cerrar_orden&id=$1 [QSA,L]
 
-# Órdenes
+# ---------- ÓRDENES ----------
 RewriteRule ^ordenes$ index.php?controller=orden&action=index [QSA,L]
 RewriteRule ^ordenes/crear$ index.php?controller=orden&action=crear [QSA,L]
 RewriteRule ^ordenes/guardar$ index.php?controller=orden&action=guardar [QSA,L]
@@ -76,17 +84,18 @@ RewriteRule ^ordenes/eliminar/([0-9]+)$ index.php?controller=orden&action=elimin
 RewriteRule ^ordenes/estadisticas$ index.php?controller=orden&action=estadisticas [QSA,L]
 RewriteRule ^ordenes/detalle/([0-9]+)$ index.php?controller=orden&action=detalle&id=$1 [QSA,L]
 
-# Inventario
+# ---------- INVENTARIO ----------
 RewriteRule ^inventario$ index.php?controller=inventario&action=index [QSA,L]
 RewriteRule ^inventario/crear$ index.php?controller=inventario&action=crear [QSA,L]
 RewriteRule ^inventario/guardar$ index.php?controller=inventario&action=guardar [QSA,L]
 RewriteRule ^inventario/editar/([0-9]+)$ index.php?controller=inventario&action=editar&id=$1 [QSA,L]
 RewriteRule ^inventario/actualizar/([0-9]+)$ index.php?controller=inventario&action=actualizar&id=$1 [QSA,L]
 RewriteRule ^inventario/eliminar/([0-9]+)$ index.php?controller=inventario&action=eliminar&id=$1 [QSA,L]
+RewriteRule ^inventario/list$ index.php?controller=inventario&action=list [QSA,L]
 RewriteRule ^inventario/buscar$ index.php?controller=inventario&action=buscar [QSA,L]
 RewriteRule ^inventario/detalle/([0-9]+)$ index.php?controller=inventario&action=detalle&id=$1 [QSA,L]
 
-# Reportes
+# ---------- REPORTES ----------
 RewriteRule ^reportes$ index.php?controller=reportes&action=index [QSA,L]
 RewriteRule ^reportes/ordenes$ index.php?controller=reportes&action=ordenes [QSA,L]
 RewriteRule ^reportes/tecnicos$ index.php?controller=reportes&action=tecnicos [QSA,L]
@@ -95,7 +104,7 @@ RewriteRule ^reportes/imprimir$ index.php?controller=reportes&action=imprimir [Q
 RewriteRule ^reportes/financieros$ index.php?controller=reporteFinanciero&action=index [QSA,L]
 RewriteRule ^reportes/financieros/exportar$ index.php?controller=reporteFinanciero&action=exportar [QSA,L]
 
-# Supervisión
+# ---------- SUPERVISIÓN ----------
 RewriteRule ^supervision$ index.php?controller=supervision&action=index [QSA,L]
 RewriteRule ^supervision/crear$ index.php?controller=supervision&action=crear [QSA,L]
 RewriteRule ^supervision/guardar$ index.php?controller=supervision&action=guardar [QSA,L]
@@ -107,9 +116,45 @@ RewriteRule ^supervision/aprobar/([0-9]+)$ index.php?controller=supervision&acti
 RewriteRule ^supervision/rechazar/([0-9]+)$ index.php?controller=supervision&action=rechazar&id=$1 [QSA,L]
 RewriteRule ^supervision/reporte$ index.php?controller=supervision&action=reporte [QSA,L]
 
-# Reporte Financiero
+# ---------- USUARIOS (Gestión - Admin) ----------
+RewriteRule ^usuarios$ index.php?controller=usuarios&action=index [QSA,L]
+RewriteRule ^usuarios/crear$ index.php?controller=usuarios&action=crear [QSA,L]
+RewriteRule ^usuarios/guardar$ index.php?controller=usuarios&action=guardar [QSA,L]
+RewriteRule ^usuarios/editar/([0-9]+)$ index.php?controller=usuarios&action=editar&id=$1 [QSA,L]
+RewriteRule ^usuarios/actualizar/([0-9]+)$ index.php?controller=usuarios&action=actualizar&id=$1 [QSA,L]
+RewriteRule ^usuarios/eliminar/([0-9]+)$ index.php?controller=usuarios&action=eliminar&id=$1 [QSA,L]
+RewriteRule ^usuarios/cambiar_estado/([0-9]+)/([a-z]+)$ index.php?controller=usuarios&action=cambiar_estado&id=$1&estado=$2 [QSA,L]
+
+# ---------- PERFIL DE USUARIO ----------
+RewriteRule ^perfil$ index.php?controller=perfil&action=index [QSA,L]
+RewriteRule ^perfil/editar$ index.php?controller=perfil&action=editar [QSA,L]
+RewriteRule ^perfil/actualizar$ index.php?controller=perfil&action=actualizar [QSA,L]
+RewriteRule ^perfil/cambiar_password$ index.php?controller=perfil&action=cambiar_password [QSA,L]
+RewriteRule ^perfil/guardar_password$ index.php?controller=perfil&action=guardar_password [QSA,L]
+
+# ---------- API (AJAX) ----------
+RewriteRule ^api/ordenes/estadisticas$ index.php?controller=orden&action=estadisticas [QSA,L]
+RewriteRule ^api/ordenes/getAreas$ index.php?controller=orden&action=getAreas [QSA,L]
+RewriteRule ^api/ordenes/getEquipos$ index.php?controller=orden&action=getEquipos [QSA,L]
+RewriteRule ^api/ordenes/getComponentes$ index.php?controller=orden&action=getComponentes [QSA,L]
+RewriteRule ^api/tecnicos/getTarifa$ index.php?controller=orden&action=getTecnicoTarifa [QSA,L]
+RewriteRule ^api/inventario/getPrecio$ index.php?controller=orden&action=getRepuestoPrecio [QSA,L]
+
+# ==========================================
+# ERROR 404 - PÁGINA NO ENCONTRADA
+# ==========================================
+ErrorDocument 404 /proyecto/index.php?controller=error&action=error404
+
+# ==========================================
+# SEGURIDAD - EVITAR LISTAR DIRECTORIOS
+# ==========================================
+Options -Indexes
 
 # ==========================================
 # REDIRIGIR TODO LO DEMÁS A INDEX.PHP
 # ==========================================
-RewriteRule ^(.*)$ index.php?controller=$1&action=index [QSA,L]
+# Si la URL no coincide con ninguna regla anterior
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([^/]+)/([^/]+)/?$ index.php?controller=$1&action=$2 [QSA,L]
+RewriteRule ^([^/]+)/?$ index.php?controller=$1&action=index [QSA,L]

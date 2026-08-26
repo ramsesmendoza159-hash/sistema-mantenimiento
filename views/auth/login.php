@@ -1,13 +1,14 @@
 <?php
 // views/auth/login.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\auth\login.php
 
 // Verificar si ya está logueado
 if (isset($_SESSION['usuario_id'])) {
-    header('Location: /produmar/dashboard');
+    header('Location: /proyecto/dashboard');
     exit();
 }
 
-$titulo = "Iniciar Sesión - PRODUMAR";
+$titulo = "Iniciar Sesión - PROYECTO";
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -142,12 +143,12 @@ $titulo = "Iniciar Sesión - PRODUMAR";
             <div class="col-md-6">
                 <div class="login-card">
                     <div class="login-header">
-                        <h3><i class="bi bi-tools"></i> PRODUMAR</h3>
+                        <h3><i class="bi bi-tools"></i> PROYECTO</h3>
                         <p>Sistema de Gestión de Mantenimiento</p>
                     </div>
                     <div class="login-body">
                         <div class="login-logo">
-                            <img src="/produmar/assets/img/cropped-produmar-logo.png" alt="PRODUMAR Logo" 
+                            <img src="/proyecto/assets/img/cropped-produmar-logo.png" alt="PROYECTO Logo" 
                                  onerror="this.style.display='none'">
                         </div>
 
@@ -173,13 +174,13 @@ $titulo = "Iniciar Sesión - PRODUMAR";
                             </div>
                         <?php endif; ?>
 
-                        <form action="/produmar/auth/authenticate" method="POST">
+                        <form action="/proyecto/auth/authenticate" method="POST">
                             <div class="mb-3">
                                 <label for="email" class="form-label fw-semibold">Correo Electrónico</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-envelope"></i></span>
                                     <input type="email" class="form-control" id="email" name="email" 
-                                           placeholder="usuario@produmar.com" required autofocus
+                                           placeholder="usuario@proyecto.com" required autofocus
                                            value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
                                 </div>
                             </div>
@@ -210,15 +211,15 @@ $titulo = "Iniciar Sesión - PRODUMAR";
                             <div class="row text-center">
                                 <div class="col-4">
                                     <span class="badge bg-primary badge-role">Admin</span>
-                                    <small class="d-block text-muted mt-1" style="font-size: 11px;">admin@produmar.com</small>
+                                    <small class="d-block text-muted mt-1" style="font-size: 11px;">admin@proyecto.com</small>
                                 </div>
                                 <div class="col-4">
                                     <span class="badge bg-success badge-role">Supervisor</span>
-                                    <small class="d-block text-muted mt-1" style="font-size: 11px;">william.gomez@produmar.com</small>
+                                    <small class="d-block text-muted mt-1" style="font-size: 11px;">william.gomez@proyecto.com</small>
                                 </div>
                                 <div class="col-4">
                                     <span class="badge bg-info badge-role">Técnico</span>
-                                    <small class="d-block text-muted mt-1" style="font-size: 11px;">juan@produmar.com</small>
+                                    <small class="d-block text-muted mt-1" style="font-size: 11px;">juan@proyecto.com</small>
                                 </div>
                             </div>
                             <div class="text-center mt-2">

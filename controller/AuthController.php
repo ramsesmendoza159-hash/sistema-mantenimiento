@@ -1,6 +1,6 @@
 <?php
 // controller/AuthController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\AuthController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\AuthController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -51,7 +51,7 @@ class AuthController extends Controller {
 
         if (empty($email) || empty($password)) {
             $_SESSION['error'] = 'Por favor, ingresa tu email y contraseña.';
-            $this->redirect('/produmar/auth/login');
+            $this->redirect('/proyecto/auth/login');
             return;
         }
 
@@ -94,7 +94,7 @@ class AuthController extends Controller {
 
         // Credenciales incorrectas
         $_SESSION['error'] = 'Email o contraseña incorrectos.';
-        $this->redirect('/produmar/auth/login');
+        $this->redirect('/proyecto/auth/login');
     }
 
     /**

@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'admin') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -17,14 +17,14 @@ include_once __DIR__ . '/../layouts/header.php';
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Agregar al Inventario</h1>
-                <a href="/produmar/inventario" class="btn btn-secondary">
+                <a href="/proyecto/inventario" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
 
             <div class="card">
                 <div class="card-body">
-                    <form action="/produmar/inventario/guardar" method="POST" enctype="multipart/form-data">
+                    <form action="/proyecto/inventario/guardar" method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -105,7 +105,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
                         <hr>
                         <div class="d-flex justify-content-end">
-                            <a href="/produmar/inventario" class="btn btn-secondary me-2">Cancelar</a>
+                            <a href="/proyecto/inventario" class="btn btn-secondary me-2">Cancelar</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save"></i> Guardar
                             </button>

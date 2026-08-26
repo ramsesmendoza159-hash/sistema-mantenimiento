@@ -1,7 +1,13 @@
 <?php
-session_start();
+// views/ordenes/estadisticas.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\ordenes\estadisticas.php
+
+// ✅ ELIMINAR session_start() - ya está iniciada en el router
+// session_start(); // ❌ ELIMINAR ESTA LÍNEA
+
+// Verificar autenticación
 if (!isset($_SESSION['usuario_id'])) {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -16,84 +22,94 @@ include_once __DIR__ . '/../layouts/header.php';
         
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Estadísticas de Órdenes</h1>
-                <a href="/produmar/ordenes" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Volver
-                </a>
+                <h1 class="h2"><i class="fas fa-chart-bar"></i> Estadísticas de Órdenes</h1>
+                <div>
+                    <a href="/proyecto/ordenes" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver
+                    </a>
+                </div>
             </div>
 
-            <!-- Filtro de período -->
+            <!-- Filtros -->
             <div class="card mb-4">
                 <div class="card-body">
-                    <form id="periodoForm" class="row g-3">
-                        <div class="col-md-4">
+                    <form method="GET" action="/proyecto/ordenes/estadisticas" class="row g-3 align-items-end">
+                        <div class="col-md-3">
                             <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
-                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio">
+                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
+                                   value="<?php echo $fechaInicio ?? date('Y-m-01'); ?>">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="fecha_fin" class="form-label">Fecha Fin</label>
-                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin">
+                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" 
+                                   value="<?php echo $fechaFin ?? date('Y-m-t'); ?>">
                         </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary me-2">Actualizar</button>
-                            <button type="reset" class="btn btn-secondary">Hoy</button>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Actualizar
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="/proyecto/ordenes/estadisticas" class="btn btn-secondary w-100">
+                                <i class="fas fa-undo"></i> Limpiar
+                            </a>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <!-- Cards de resumen -->
-            <div class="row" id="cardsResumen">
-                <div class="col-md-3 mb-3">
+            <!-- Tarjetas de estadísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
                     <div class="card text-white bg-primary">
                         <div class="card-body">
-                            <h5 class="card-title">Total Órdenes</h5>
-                            <p class="card-text display-6" id="total">0</p>
+                            <h6 class="card-title"><i class="fas fa-clipboard-list"></i> Total Órdenes</h6>
+                            <p class="card-text display-6"><?php echo number_format($estadisticas['total'] ?? 0); ?></p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card text-white bg-success">
-                        <div class="card-body">
-                            <h5 class="card-title">Completadas</h5>
-                            <p class="card-text display-6" id="completadas">0</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
+                <div class="col-md-3">
                     <div class="card text-white bg-warning">
                         <div class="card-body">
-                            <h5 class="card-title">En Progreso</h5>
-                            <p class="card-text display-6" id="en_progreso">0</p>
+                            <h6 class="card-title"><i class="fas fa-clock"></i> Pendientes</h6>
+                            <p class="card-text display-6"><?php echo number_format($estadisticas['pendientes'] ?? 0); ?></p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card text-white bg-danger">
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
                         <div class="card-body">
-                            <h5 class="card-title">Pendientes</h5>
-                            <p class="card-text display-6" id="pendientes">0</p>
+                            <h6 class="card-title"><i class="fas fa-spinner"></i> En Proceso</h6>
+                            <p class="card-text display-6"><?php echo number_format($estadisticas['en_proceso'] ?? 0); ?></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fas fa-check-circle"></i> Cerradas</h6>
+                            <p class="card-text display-6"><?php echo number_format($estadisticas['cerradas'] ?? 0); ?></p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Gráficos -->
-            <div class="row mt-4">
-                <div class="col-md-6">
+            <div class="row">
+                <div class="col-md-6 mb-4">
                     <div class="card">
                         <div class="card-header">
-                            <h5>Órdenes por Estado</h5>
+                            <h5 class="mb-0"><i class="fas fa-chart-doughnut"></i> Distribución por Estado</h5>
                         </div>
                         <div class="card-body">
                             <canvas id="estadoChart"></canvas>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 mb-4">
                     <div class="card">
                         <div class="card-header">
-                            <h5>Órdenes por Prioridad</h5>
+                            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Órdenes por Prioridad</h5>
                         </div>
                         <div class="card-body">
                             <canvas id="prioridadChart"></canvas>
@@ -102,25 +118,68 @@ include_once __DIR__ . '/../layouts/header.php';
                 </div>
             </div>
 
-            <div class="row mt-4">
-                <div class="col-md-6">
+            <div class="row">
+                <div class="col-md-12 mb-4">
                     <div class="card">
                         <div class="card-header">
-                            <h5>Órdenes por Área</h5>
+                            <h5 class="mb-0"><i class="fas fa-chart-line"></i> Evolución Mensual</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="areaChart"></canvas>
+                            <canvas id="evolucionChart"></canvas>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>Evolución Mensual</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="mensualChart"></canvas>
-                        </div>
+            </div>
+
+            <!-- Tabla de estadísticas por técnico -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> Rendimiento por Técnico</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Órdenes</th>
+                                    <th>Completadas</th>
+                                    <th>Pendientes</th>
+                                    <th>Eficiencia</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (!empty($rendimiento_tecnicos)): ?>
+                                    <?php foreach ($rendimiento_tecnicos as $tecnico): ?>
+                                        <tr>
+                                            <td><strong><?php echo htmlspecialchars($tecnico['nombre'] ?? 'N/A'); ?></strong></td>
+                                            <td><?php echo $tecnico['total'] ?? 0; ?></td>
+                                            <td><?php echo $tecnico['completadas'] ?? 0; ?></td>
+                                            <td><?php echo ($tecnico['total'] ?? 0) - ($tecnico['completadas'] ?? 0); ?></td>
+                                            <td>
+                                                <?php 
+                                                $eficiencia = ($tecnico['total'] ?? 0) > 0 
+                                                    ? round((($tecnico['completadas'] ?? 0) / ($tecnico['total'] ?? 0)) * 100, 1) 
+                                                    : 0;
+                                                ?>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-success" role="progressbar" 
+                                                         style="width: <?php echo $eficiencia; ?>%;" 
+                                                         aria-valuenow="<?php echo $eficiencia; ?>" 
+                                                         aria-valuemin="0" aria-valuemax="100">
+                                                        <?php echo $eficiencia; ?>%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center">No hay datos disponibles</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -130,199 +189,98 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let estadoChart, prioridadChart, areaChart, mensualChart;
-
-    function cargarEstadisticas(fechaInicio = null, fechaFin = null) {
-        let url = '/produmar/ordenes/estadisticasData';
-        const params = new URLSearchParams();
-        if (fechaInicio) params.append('fecha_inicio', fechaInicio);
-        if (fechaFin) params.append('fecha_fin', fechaFin);
-        if (params.toString()) url += '?' + params.toString();
-
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                // Actualizar cards
-                document.getElementById('total').textContent = data.total || 0;
-                document.getElementById('completadas').textContent = data.estados?.completada || 0;
-                document.getElementById('en_progreso').textContent = data.estados?.en_progreso || 0;
-                document.getElementById('pendientes').textContent = data.estados?.pendiente || 0;
-
-                // Gráfico de estados
-                if (data.estados) {
-                    const ctxEstado = document.getElementById('estadoChart').getContext('2d');
-                    const labels = Object.keys(data.estados);
-                    const valores = Object.values(data.estados);
-                    const colores = {
-                        'pendiente': '#ffc107',
-                        'en_progreso': '#0dcaf0',
-                        'completada': '#198754',
-                        'cancelada': '#dc3545'
-                    };
-                    
-                    if (estadoChart) estadoChart.destroy();
-                    estadoChart = new Chart(ctxEstado, {
-                        type: 'doughnut',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                data: valores,
-                                backgroundColor: labels.map(l => colores[l] || '#6c757d'),
-                                borderColor: '#fff',
-                                borderWidth: 2
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
-                                }
-                            }
-                        }
-                    });
+    // Gráfico de Distribución por Estado
+    <?php if (isset($estadisticas)): ?>
+    const ctxEstado = document.getElementById('estadoChart').getContext('2d');
+    new Chart(ctxEstado, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pendientes', 'En Proceso', 'Cerradas', 'Canceladas', 'Aprobadas', 'Rechazadas'],
+            datasets: [{
+                data: [
+                    <?php echo $estadisticas['pendientes'] ?? 0; ?>,
+                    <?php echo $estadisticas['en_proceso'] ?? 0; ?>,
+                    <?php echo $estadisticas['cerradas'] ?? 0; ?>,
+                    <?php echo $estadisticas['canceladas'] ?? 0; ?>,
+                    <?php echo $estadisticas['aprobadas'] ?? 0; ?>,
+                    <?php echo $estadisticas['rechazadas'] ?? 0; ?>
+                ],
+                backgroundColor: ['#ffc107', '#17a2b8', '#28a745', '#dc3545', '#0d6efd', '#6c757d'],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 }
-
-                // Gráfico de prioridades
-                if (data.prioridades) {
-                    const ctxPrioridad = document.getElementById('prioridadChart').getContext('2d');
-                    const labels = Object.keys(data.prioridades);
-                    const valores = Object.values(data.prioridades);
-                    const colores = {
-                        'baja': '#0dcaf0',
-                        'media': '#ffc107',
-                        'alta': '#fd7e14',
-                        'urgente': '#dc3545'
-                    };
-                    
-                    if (prioridadChart) prioridadChart.destroy();
-                    prioridadChart = new Chart(ctxPrioridad, {
-                        type: 'pie',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                data: valores,
-                                backgroundColor: labels.map(l => colores[l] || '#6c757d'),
-                                borderColor: '#fff',
-                                borderWidth: 2
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // Gráfico de áreas (top 5)
-                if (data.areas) {
-                    const ctxArea = document.getElementById('areaChart').getContext('2d');
-                    const areasData = data.areas.slice(0, 5);
-                    const labels = areasData.map(a => a.area);
-                    const valores = areasData.map(a => a.total);
-                    
-                    if (areaChart) areaChart.destroy();
-                    areaChart = new Chart(ctxArea, {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Órdenes por Área',
-                                data: valores,
-                                backgroundColor: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545'],
-                                borderColor: '#fff',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    display: false
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        stepSize: 1
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // Gráfico mensual
-                if (data.mensual) {
-                    const ctxMensual = document.getElementById('mensualChart').getContext('2d');
-                    const labels = data.mensual.map(m => m.mes);
-                    const valores = data.mensual.map(m => m.total);
-                    
-                    if (mensualChart) mensualChart.destroy();
-                    mensualChart = new Chart(ctxMensual, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Órdenes por Mes',
-                                data: valores,
-                                backgroundColor: 'rgba(13, 110, 253, 0.2)',
-                                borderColor: '#0d6efd',
-                                borderWidth: 2,
-                                tension: 0.3,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'top'
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        stepSize: 1
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
-    // Event listeners
-    document.getElementById('periodoForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const inicio = document.getElementById('fecha_inicio').value;
-        const fin = document.getElementById('fecha_fin').value;
-        cargarEstadisticas(inicio || null, fin || null);
+            }
+        }
     });
 
-    document.getElementById('periodoForm').addEventListener('reset', function(e) {
-        e.preventDefault();
-        const hoy = new Date().toISOString().split('T')[0];
-        document.getElementById('fecha_inicio').value = hoy;
-        document.getElementById('fecha_fin').value = hoy;
-        cargarEstadisticas(hoy, hoy);
+    // Gráfico de Prioridad
+    const ctxPrioridad = document.getElementById('prioridadChart').getContext('2d');
+    new Chart(ctxPrioridad, {
+        type: 'bar',
+        data: {
+            labels: ['Alta', 'Media', 'Baja'],
+            datasets: [{
+                label: 'Órdenes por Prioridad',
+                data: [
+                    <?php echo $prioridades['alta'] ?? 0; ?>,
+                    <?php echo $prioridades['media'] ?? 0; ?>,
+                    <?php echo $prioridades['baja'] ?? 0; ?>
+                ],
+                backgroundColor: ['#dc3545', '#ffc107', '#28a745'],
+                borderColor: ['#dc3545', '#ffc107', '#28a745'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
     });
 
-    // Inicializar con hoy
-    document.addEventListener('DOMContentLoaded', function() {
-        const hoy = new Date().toISOString().split('T')[0];
-        document.getElementById('fecha_inicio').value = hoy;
-        document.getElementById('fecha_fin').value = hoy;
-        cargarEstadisticas(hoy, hoy);
+    // Gráfico de Evolución Mensual
+    <?php if (!empty($evolucion_mensual)): ?>
+    const ctxEvolucion = document.getElementById('evolucionChart').getContext('2d');
+    new Chart(ctxEvolucion, {
+        type: 'line',
+        data: {
+            labels: <?php echo json_encode(array_column($evolucion_mensual, 'mes')); ?>,
+            datasets: [{
+                label: 'Órdenes por Mes',
+                data: <?php echo json_encode(array_column($evolucion_mensual, 'total')); ?>,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
     });
+    <?php endif; ?>
+    <?php endif; ?>
 </script>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

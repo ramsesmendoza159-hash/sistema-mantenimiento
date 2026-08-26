@@ -1,6 +1,6 @@
 <?php
 // views/ordenes/index.php
-// Ubicación: C:\xampp\htdocs\produmar\views\ordenes\index.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\ordenes\index.php
 
 // Asegurar que las variables existan
 $ordenes = $ordenes ?? [];
@@ -26,11 +26,11 @@ include_once __DIR__ . '/../layouts/header.php';
                 <h1 class="h2"><i class="fas fa-clipboard-list"></i> Órdenes de Trabajo</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
                     <?php if ($rol === 'admin' || $rol === 'supervisor'): ?>
-                        <a href="/produmar/ordenes/crear" class="btn btn-primary me-2">
+                        <a href="/proyecto/ordenes/crear" class="btn btn-primary me-2">
                             <i class="fas fa-plus-circle"></i> Nueva Orden
                         </a>
                     <?php endif; ?>
-                    <a href="/produmar/ordenes/estadisticas" class="btn btn-info">
+                    <a href="/proyecto/ordenes/estadisticas" class="btn btn-info">
                         <i class="fas fa-chart-bar"></i> Estadísticas
                     </a>
                 </div>
@@ -56,7 +56,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <!-- Filtros -->
             <div class="card mb-4">
                 <div class="card-body">
-                    <form method="GET" action="/produmar/ordenes" class="row g-3 align-items-end">
+                    <form method="GET" action="/proyecto/ordenes" class="row g-3 align-items-end">
                         <div class="col-md-2">
                             <label for="buscar" class="form-label"><i class="fas fa-search"></i> Buscar</label>
                             <input type="text" name="buscar" id="buscar" class="form-control" 
@@ -178,17 +178,17 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <td><?php echo isset($orden['fecha_creacion']) ? date('d/m/Y', strtotime($orden['fecha_creacion'])) : '-'; ?></td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="/produmar/ordenes/ver/<?php echo $orden['id']; ?>" class="btn btn-sm btn-primary" title="Ver">
+                                                    <a href="/proyecto/ordenes/ver/<?php echo $orden['id']; ?>" class="btn btn-sm btn-primary" title="Ver">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <?php if ($rol === 'admin' || $rol === 'supervisor'): ?>
                                                         <?php if ($orden['status'] !== 'CERRADA' && $orden['status'] !== 'CANCELADA' && $orden['status'] !== 'APROBADA'): ?>
-                                                            <a href="/produmar/ordenes/editar/<?php echo $orden['id']; ?>" class="btn btn-sm btn-warning" title="Editar">
+                                                            <a href="/proyecto/ordenes/editar/<?php echo $orden['id']; ?>" class="btn btn-sm btn-warning" title="Editar">
                                                                 <i class="fas fa-edit"></i>
                                                             </a>
                                                         <?php endif; ?>
                                                         <?php if ($orden['status'] === 'PENDIENTE' || $orden['status'] === 'EN_PROCESO'): ?>
-                                                            <a href="/produmar/ordenes/cerrar/<?php echo $orden['id']; ?>" class="btn btn-sm btn-success" title="Cerrar">
+                                                            <a href="/proyecto/ordenes/cerrar/<?php echo $orden['id']; ?>" class="btn btn-sm btn-success" title="Cerrar">
                                                                 <i class="fas fa-check-circle"></i>
                                                             </a>
                                                         <?php endif; ?>
@@ -268,7 +268,7 @@ include_once __DIR__ . '/../layouts/header.php';
 <script>
     function confirmarEliminar(id, num_om) {
         document.getElementById('ordenEliminarNombre').textContent = num_om;
-        document.getElementById('formEliminar').action = '/produmar/ordenes/eliminar/' + id;
+        document.getElementById('formEliminar').action = '/proyecto/ordenes/eliminar/' + id;
         var modal = new bootstrap.Modal(document.getElementById('modalEliminar'));
         modal.show();
     }

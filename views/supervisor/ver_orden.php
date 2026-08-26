@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -11,7 +11,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $orden = $orden ?? null;
 if (!$orden) {
-    header('Location: /produmar/supervisor/ordenes');
+    header('Location: /proyecto/supervisor/ordenes');
     exit();
 }
 ?>
@@ -24,11 +24,15 @@ if (!$orden) {
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Detalle de Orden #<?php echo $orden['id']; ?></h1>
                 <div>
-                    <a href="/produmar/supervisor/ordenes" class="btn btn-secondary">
+                    <a href="/proyecto/supervisor/ordenes" class="btn btn-secondary">
                         <i class="bi bi-arrow-left"></i> Volver
                     </a>
-                    <?php if ($orden['estado'] === 'completada' && $orden['supervision_estado'] !== 'aprobada'): ?>
-                        <a href="/produmar/supervisor/revisar/<?php echo $orden['id']; ?>" class="btn btn-primary">
+                    <?php 
+                    $estado = $orden['estado'] ?? 'PENDIENTE';
+                    $supervisionEstado = $orden['supervision_estado'] ?? '';
+                    if ($estado === 'CERRADA' && $supervisionEstado !== 'APROBADA'): 
+                    ?>
+                        <a href="/proyecto/supervisor/revisar/<?php echo $orden['id']; ?>" class="btn btn-primary">
                             <i class="bi bi-clipboard-check"></i> Revisar
                         </a>
                     <?php endif; ?>
@@ -47,16 +51,22 @@ if (!$orden) {
                                     <p><strong>Título:</strong> <?php echo htmlspecialchars($orden['titulo']); ?></p>
                                     <p><strong>Área:</strong> <?php echo $orden['area'] ?? 'N/A'; ?></p>
                                     <p><strong>Prioridad:</strong> 
-                                        <span class="badge bg-<?php echo $orden['prioridad'] === 'urgente' ? 'danger' : 
-                                                                 ($orden['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
-                                            <?php echo $orden['prioridad']; ?>
+                                        <span class="badge bg-<?php 
+                                            $prioridad = $orden['prioridad'] ?? 'Media';
+                                            echo $prioridad === 'Urgente' ? 'danger' : 
+                                                 ($prioridad === 'Alta' ? 'warning' : 'info'); 
+                                        ?>">
+                                            <?php echo $prioridad; ?>
                                         </span>
                                     </p>
                                     <p><strong>Estado:</strong> 
-                                        <span class="badge bg-<?php echo $orden['estado'] === 'completada' ? 'success' : 
-                                                                 ($orden['estado'] === 'en_progreso' ? 'info' : 
-                                                                 ($orden['estado'] === 'cancelada' ? 'danger' : 'warning')); ?>">
-                                            <?php echo $orden['estado']; ?>
+                                        <span class="badge bg-<?php 
+                                            $estado = $orden['estado'] ?? 'PENDIENTE';
+                                            echo $estado === 'CERRADA' || $estado === 'APROBADA' ? 'success' : 
+                                                 ($estado === 'EN_PROCESO' ? 'info' : 
+                                                 ($estado === 'CANCELADA' || $estado === 'RECHAZADA' ? 'danger' : 'warning')); 
+                                        ?>">
+                                            <?php echo $estado; ?>
                                         </span>
                                     </p>
                                 </div>
@@ -84,7 +94,10 @@ if (!$orden) {
                         </div>
                     </div>
 
-                    <?php if ($orden['estado'] === 'completada'): ?>
+                    <?php 
+                    $estado = $orden['estado'] ?? 'PENDIENTE';
+                    if ($estado === 'CERRADA' || $estado === 'APROBADA'): 
+                    ?>
                     <div class="card mt-3">
                         <div class="card-header bg-success text-white">
                             <h5 class="mb-0">Trabajo Realizado</h5>
@@ -127,8 +140,8 @@ if (!$orden) {
                             <div class="row g-2">
                                 <?php foreach (explode(',', $orden['evidencias']) as $evidencia): ?>
                                     <div class="col-md-3 col-6">
-                                        <a href="/produmar/uploads/evidencias/<?php echo trim($evidencia); ?>" target="_blank">
-                                            <img src="/produmar/uploads/evidencias/<?php echo trim($evidencia); ?>" 
+                                        <a href="/proyecto/uploads/evidencias/<?php echo trim($evidencia); ?>" target="_blank">
+                                            <img src="/proyecto/uploads/evidencias/<?php echo trim($evidencia); ?>" 
                                                  alt="Evidencia" class="img-fluid rounded" style="height: 150px; width: 100%; object-fit: cover;">
                                         </a>
                                     </div>
@@ -148,9 +161,12 @@ if (!$orden) {
                         <div class="card-body">
                             <?php if ($orden['supervision']): ?>
                                 <p><strong>Estado:</strong> 
-                                    <span class="badge bg-<?php echo $orden['supervision']['estado'] === 'aprobada' ? 'success' : 
-                                                             ($orden['supervision']['estado'] === 'rechazada' ? 'danger' : 'warning'); ?>">
-                                        <?php echo $orden['supervision']['estado']; ?>
+                                    <span class="badge bg-<?php 
+                                        $supEstado = $orden['supervision']['estado'] ?? '';
+                                        echo $supEstado === 'APROBADA' ? 'success' : 
+                                             ($supEstado === 'RECHAZADA' ? 'danger' : 'warning'); 
+                                    ?>">
+                                        <?php echo $supEstado; ?>
                                     </span>
                                 </p>
                                 <p><strong>Calificación:</strong> 
@@ -170,8 +186,11 @@ if (!$orden) {
                                 <p><strong>Fecha supervisión:</strong> <?php echo $orden['supervision']['fecha_creacion']; ?></p>
                             <?php else: ?>
                                 <p class="text-muted">Esta orden aún no ha sido supervisada</p>
-                                <?php if ($orden['estado'] === 'completada'): ?>
-                                    <a href="/produmar/supervisor/revisar/<?php echo $orden['id']; ?>" class="btn btn-primary w-100">
+                                <?php 
+                                $estado = $orden['estado'] ?? 'PENDIENTE';
+                                if ($estado === 'CERRADA' || $estado === 'APROBADA'): 
+                                ?>
+                                    <a href="/proyecto/supervisor/revisar/<?php echo $orden['id']; ?>" class="btn btn-primary w-100">
                                         <i class="bi bi-clipboard-check"></i> Revisar Orden
                                     </a>
                                 <?php endif; ?>

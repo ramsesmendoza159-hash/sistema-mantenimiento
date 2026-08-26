@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id'])) {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -17,14 +17,14 @@ include_once __DIR__ . '/../layouts/header.php';
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Nueva Orden de Trabajo</h1>
-                <a href="/produmar/ordenes" class="btn btn-secondary">
+                <a href="/proyecto/ordenes" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
 
             <div class="card">
                 <div class="card-body">
-                    <form action="/produmar/ordenes/guardar" method="POST" id="ordenForm">
+                    <form action="/proyecto/ordenes/guardar" method="POST" id="ordenForm">
                         <div class="row">
                             <div class="col-md-8">
                                 <div class="mb-3">
@@ -36,10 +36,10 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <div class="mb-3">
                                     <label for="prioridad" class="form-label">Prioridad *</label>
                                     <select class="form-select" id="prioridad" name="prioridad" required>
-                                        <option value="baja">Baja</option>
-                                        <option value="media" selected>Media</option>
-                                        <option value="alta">Alta</option>
-                                        <option value="urgente">Urgente</option>
+                                        <option value="Baja">Baja</option>
+                                        <option value="Media" selected>Media</option>
+                                        <option value="Alta">Alta</option>
+                                        <option value="Urgente">Urgente</option>
                                     </select>
                                 </div>
                             </div>
@@ -94,7 +94,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
                         <hr>
                         <div class="d-flex justify-content-end">
-                            <a href="/produmar/ordenes" class="btn btn-secondary me-2">Cancelar</a>
+                            <a href="/proyecto/ordenes" class="btn btn-secondary me-2">Cancelar</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save"></i> Crear Orden
                             </button>
@@ -109,7 +109,7 @@ include_once __DIR__ . '/../layouts/header.php';
 <script>
     // Cargar áreas
     function cargarAreas() {
-        fetch('/produmar/ordenes/areas')
+        fetch('/proyecto/ordenes/areas')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('area_id');
@@ -124,7 +124,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
     // Cargar técnicos
     function cargarTecnicos() {
-        fetch('/produmar/ordenes/tecnicos')
+        fetch('/proyecto/ordenes/tecnicos')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('tecnico_id');
@@ -139,7 +139,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
     // Cargar equipos
     function cargarEquipos() {
-        fetch('/produmar/ordenes/equipos')
+        fetch('/proyecto/ordenes/equipos')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('equipo_id');
@@ -196,10 +196,10 @@ include_once __DIR__ . '/../layouts/header.php';
         // Si el checkbox urgente se activa, cambiar prioridad a urgente
         document.getElementById('urgente').addEventListener('change', function() {
             if (this.checked) {
-                document.getElementById('prioridad').value = 'urgente';
+                document.getElementById('prioridad').value = 'Urgente';
                 document.getElementById('prioridad').disabled = true;
             } else {
-                document.getElementById('prioridad').value = 'media';
+                document.getElementById('prioridad').value = 'Media';
                 document.getElementById('prioridad').disabled = false;
             }
         });

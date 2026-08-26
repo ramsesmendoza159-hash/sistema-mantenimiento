@@ -1,6 +1,6 @@
 <?php
 // model/TecnicosModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\TecnicosModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\TecnicosModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';

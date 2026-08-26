@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -11,7 +11,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $supervision = $supervision ?? null;
 if (!$supervision) {
-    header('Location: /produmar/supervisor/supervisiones');
+    header('Location: /proyecto/supervisor/supervisiones');
     exit();
 }
 ?>
@@ -23,7 +23,7 @@ if (!$supervision) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Detalle de Supervisión #<?php echo $supervision['id']; ?></h1>
-                <a href="/produmar/supervisor/supervisiones" class="btn btn-secondary">
+                <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
@@ -41,9 +41,12 @@ if (!$supervision) {
                                     <p><strong>Orden:</strong> #<?php echo $supervision['orden_id']; ?></p>
                                     <p><strong>Técnico:</strong> <?php echo $supervision['tecnico'] ?? 'N/A'; ?></p>
                                     <p><strong>Estado:</strong> 
-                                        <span class="badge bg-<?php echo $supervision['estado'] === 'aprobada' ? 'success' : 
-                                                                 ($supervision['estado'] === 'rechazada' ? 'danger' : 'warning'); ?>">
-                                            <?php echo $supervision['estado']; ?>
+                                        <span class="badge bg-<?php 
+                                            $estado = $supervision['estado'] ?? 'PENDIENTE';
+                                            echo $estado === 'APROBADA' ? 'success' : 
+                                                 ($estado === 'RECHAZADA' ? 'danger' : 'warning'); 
+                                        ?>">
+                                            <?php echo $estado; ?>
                                         </span>
                                     </p>
                                 </div>
@@ -56,7 +59,7 @@ if (!$supervision) {
                                             </span>
                                             <?php for ($i = 1; $i <= 5; $i++): ?>
                                                 <i class="bi bi-star<?php echo $i <= $supervision['calificacion'] ? '-fill' : ''; ?> 
-                                                   text-<?php echo $i <= $supervision['calificacion'] ? 'warning' : 'secondary'; ?>">
+                                                text-<?php echo $i <= $supervision['calificacion'] ? 'warning' : 'secondary'; ?>">
                                                 </i>
                                             <?php endfor; ?>
                                         <?php else: ?>
@@ -90,17 +93,25 @@ if (!$supervision) {
                                 <p><strong>Título:</strong> <?php echo htmlspecialchars($supervision['orden']['titulo']); ?></p>
                                 <p><strong>Área:</strong> <?php echo $supervision['orden']['area'] ?? 'N/A'; ?></p>
                                 <p><strong>Prioridad:</strong> 
-                                    <span class="badge bg-<?php echo $supervision['orden']['prioridad'] === 'urgente' ? 'danger' : 
-                                                             ($supervision['orden']['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
-                                        <?php echo $supervision['orden']['prioridad']; ?>
+                                    <span class="badge bg-<?php 
+                                        $prioridad = $supervision['orden']['prioridad'] ?? 'Media';
+                                        echo $prioridad === 'Urgente' ? 'danger' : 
+                                             ($prioridad === 'Alta' ? 'warning' : 'info'); 
+                                    ?>">
+                                        <?php echo $prioridad; ?>
                                     </span>
                                 </p>
                                 <p><strong>Estado:</strong> 
-                                    <span class="badge bg-<?php echo $supervision['orden']['estado'] === 'completada' ? 'success' : 'warning'; ?>">
-                                        <?php echo $supervision['orden']['estado']; ?>
+                                    <span class="badge bg-<?php 
+                                        $estado = $supervision['orden']['estado'] ?? 'PENDIENTE';
+                                        echo $estado === 'CERRADA' || $estado === 'APROBADA' ? 'success' : 
+                                             ($estado === 'EN_PROCESO' ? 'info' : 
+                                             ($estado === 'CANCELADA' || $estado === 'RECHAZADA' ? 'danger' : 'warning')); 
+                                    ?>">
+                                        <?php echo $estado; ?>
                                     </span>
                                 </p>
-                                <a href="/produmar/supervisor/ver_orden/<?php echo $supervision['orden_id']; ?>" class="btn btn-sm btn-info w-100">
+                                <a href="/proyecto/supervisor/ver_orden/<?php echo $supervision['orden_id']; ?>" class="btn btn-sm btn-info w-100">
                                     <i class="bi bi-eye"></i> Ver Orden
                                 </a>
                             <?php else: ?>
@@ -110,13 +121,16 @@ if (!$supervision) {
                     </div>
 
                     <!-- Acciones -->
-                    <?php if ($supervision['estado'] !== 'aprobada' && $supervision['estado'] !== 'rechazada'): ?>
+                    <?php 
+                    $estado = $supervision['estado'] ?? 'PENDIENTE';
+                    if ($estado !== 'APROBADA' && $estado !== 'RECHAZADA'): 
+                    ?>
                     <div class="card mt-3 border-warning">
                         <div class="card-header bg-warning">
                             <h5 class="mb-0">Acciones</h5>
                         </div>
                         <div class="card-body">
-                            <a href="/produmar/supervisor/revisar/<?php echo $supervision['orden_id']; ?>" class="btn btn-primary w-100">
+                            <a href="/proyecto/supervisor/revisar/<?php echo $supervision['orden_id']; ?>" class="btn btn-primary w-100">
                                 <i class="bi bi-clipboard-check"></i> Completar Revisión
                             </a>
                         </div>

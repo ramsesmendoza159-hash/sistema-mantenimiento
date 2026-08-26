@@ -1,7 +1,14 @@
 <?php
-session_start();
+// views/supervisor/index.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\supervisor\index.php
+
+// ✅ Verificar si la sesión ya está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -18,10 +25,10 @@ include_once __DIR__ . '/../layouts/header.php';
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Panel de Supervisor</h1>
                 <div>
-                    <a href="/produmar/supervisor/ordenes" class="btn btn-primary me-2">
+                    <a href="/proyecto/supervisor/ordenes" class="btn btn-primary me-2">
                         <i class="bi bi-list-task"></i> Ver Órdenes
                     </a>
-                    <a href="/produmar/supervisor/supervisiones" class="btn btn-info">
+                    <a href="/proyecto/supervisor/supervisiones" class="btn btn-info">
                         <i class="bi bi-clipboard-check"></i> Supervisiones
                     </a>
                 </div>
@@ -94,7 +101,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <script>
     function cargarDashboard() {
-        fetch('/produmar/supervisor/dashboardData')
+        fetch('/proyecto/supervisor/dashboardData')
             .then(response => response.json())
             .then(data => {
                 document.getElementById('total_ordenes').textContent = data.total_ordenes || 0;
@@ -109,10 +116,10 @@ include_once __DIR__ . '/../layouts/header.php';
                     data.ordenes.forEach(orden => {
                         const tr = document.createElement('tr');
                         const prioridadClass = {
-                            'baja': 'info',
-                            'media': 'warning',
-                            'alta': 'danger',
-                            'urgente': 'danger'
+                            'Baja': 'info',
+                            'Media': 'warning',
+                            'Alta': 'danger',
+                            'Urgente': 'danger'
                         }[orden.prioridad] || 'secondary';
 
                         tr.innerHTML = `
@@ -122,7 +129,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <td><span class="badge bg-${prioridadClass}">${orden.prioridad}</span></td>
                             <td>${orden.fecha_cierre || 'N/A'}</td>
                             <td>
-                                <a href="/produmar/supervisor/revisar/${orden.id}" class="btn btn-sm btn-primary">
+                                <a href="/proyecto/supervisor/revisar/${orden.id}" class="btn btn-sm btn-primary">
                                     <i class="bi bi-eye"></i> Revisar
                                 </a>
                             </td>

@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'admin') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -11,7 +11,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $supervision = $supervision ?? null;
 if (!$supervision) {
-    header('Location: /produmar/supervision');
+    header('Location: /proyecto/supervision');
     exit();
 }
 ?>
@@ -23,14 +23,14 @@ if (!$supervision) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Editar Supervisión #<?php echo $supervision['id']; ?></h1>
-                <a href="/produmar/supervision" class="btn btn-secondary">
+                <a href="/proyecto/supervision" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
 
             <div class="card">
                 <div class="card-body">
-                    <form action="/produmar/supervision/actualizar/<?php echo $supervision['id']; ?>" method="POST">
+                    <form action="/proyecto/supervision/actualizar/<?php echo $supervision['id']; ?>" method="POST">
                         <input type="hidden" name="_method" value="PUT">
                         
                         <div class="row">
@@ -75,9 +75,9 @@ if (!$supervision) {
                                 <div class="mb-3">
                                     <label for="estado" class="form-label">Estado</label>
                                     <select class="form-select" id="estado" name="estado">
-                                        <option value="pendiente" <?php echo $supervision['estado'] === 'pendiente' ? 'selected' : ''; ?>>Pendiente</option>
-                                        <option value="aprobada" <?php echo $supervision['estado'] === 'aprobada' ? 'selected' : ''; ?>>Aprobada</option>
-                                        <option value="rechazada" <?php echo $supervision['estado'] === 'rechazada' ? 'selected' : ''; ?>>Rechazada</option>
+                                        <option value="PENDIENTE" <?php echo $supervision['estado'] === 'PENDIENTE' ? 'selected' : ''; ?>>Pendiente</option>
+                                        <option value="APROBADA" <?php echo $supervision['estado'] === 'APROBADA' ? 'selected' : ''; ?>>Aprobada</option>
+                                        <option value="RECHAZADA" <?php echo $supervision['estado'] === 'RECHAZADA' ? 'selected' : ''; ?>>Rechazada</option>
                                     </select>
                                 </div>
                             </div>
@@ -102,7 +102,7 @@ if (!$supervision) {
 
                         <hr>
                         <div class="d-flex justify-content-end">
-                            <a href="/produmar/supervision" class="btn btn-secondary me-2">Cancelar</a>
+                            <a href="/proyecto/supervision" class="btn btn-secondary me-2">Cancelar</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save"></i> Actualizar
                             </button>
@@ -119,7 +119,7 @@ if (!$supervision) {
     const supervisorActual = <?php echo json_encode($supervision['supervisor_id'] ?? null); ?>;
 
     function cargarOrdenes() {
-        fetch('/produmar/supervision/ordenes')
+        fetch('/proyecto/supervision/ordenes')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('orden_id');
@@ -134,7 +134,7 @@ if (!$supervision) {
     }
 
     function cargarSupervisores() {
-        fetch('/produmar/supervision/supervisores')
+        fetch('/proyecto/supervision/supervisores')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('supervisor_id');

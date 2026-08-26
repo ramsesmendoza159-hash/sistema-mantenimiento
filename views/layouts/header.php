@@ -1,13 +1,13 @@
 <?php
 // views/layouts/header.php
-// Ubicación: C:\xampp\htdocs\produmar\views\layouts\header.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\layouts\header.php
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $titulo ?? 'PRODUMAR - Sistema de Mantenimiento'; ?></title>
+    <title><?php echo $titulo ?? 'PROYECTO - Sistema de Mantenimiento'; ?></title>
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">

@@ -1,24 +1,26 @@
 <?php
-// controller/TecnicosController.php
+// controller/TecnicoController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\TecnicoController.php
 
 require_once __DIR__ . '/../helpers/Controller.php';
 
-class TecnicosController extends Controller {
+class TecnicoController extends Controller {
     
     private $db;
 
     public function __construct() {
         parent::__construct();
         
-        // Verificar autenticación y rol admin
+        // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
-        if (!$this->authHelper->isAdmin()) {
+        // Verificar rol de técnico
+        if (!$this->authHelper->isTecnico()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -26,227 +28,265 @@ class TecnicosController extends Controller {
     }
 
     /**
-     * Lista de técnicos
-     * URL: /tecnicos
+     * Dashboard del técnico
+     * URL: /tecnico
      */
     public function index() {
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $tecnicos = $model->obtenerTodos();
-            $estadisticas = $model->obtenerEstadisticas();
-            
-        } catch (Exception $e) {
-            error_log("Error en TecnicosController index: " . $e->getMessage());
-            $tecnicos = [];
-            $estadisticas = ['total' => 0, 'activos' => 0, 'inactivos' => 0];
-            $_SESSION['error'] = 'Error al cargar los técnicos';
-        }
-        
-        $this->view('tecnicos/index', [
-            'tecnicos' => $tecnicos,
-            'estadisticas' => $estadisticas
-        ]);
+        $this->view('tecnico/index');
     }
 
     /**
-     * Formulario para crear técnico
-     * URL: /tecnicos/crear
+     * Obtener datos para el dashboard (AJAX)
+     * URL: /tecnico/dashboardData
      */
-    public function crear() {
-        $this->view('tecnicos/crear', [
-            'tecnico' => null,
-            'accion' => 'crear'
-        ]);
-    }
-
-    /**
-     * Guardar nuevo técnico
-     * URL: /tecnicos/guardar (POST)
-     */
-    public function guardar() {
-        $this->requirePost();
-        
-        $nombre = $this->post('nombre', '');
-        $email = $this->post('email', '');
-        $telefono = $this->post('telefono', '');
-        $especialidad = $this->post('especialidad', '');
-        $password = $this->post('password', '');
-        $estado = $this->post('estado', 'activo');
-        
-        if (empty($nombre) || empty($email) || empty($password)) {
-            $_SESSION['error'] = 'Nombre, email y contraseña son obligatorios';
-            $this->redirect('/produmar/tecnicos/crear');
-        }
-        
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/produmar/tecnicos/crear');
-        }
-        
-        if (strlen($password) < 6) {
-            $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-            $this->redirect('/produmar/tecnicos/crear');
-        }
-        
+    public function dashboardData() {
         try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
+            $userId = $this->authHelper->getUserId();
             
-            // Verificar si el email ya existe
-            $existente = $model->obtenerPorEmail($email);
-            if ($existente) {
-                $_SESSION['error'] = 'El email ya está registrado';
-                $this->redirect('/produmar/tecnicos/crear');
-            }
+            // Total de órdenes asignadas
+            $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$userId]);
+            $total = $stmt->fetchColumn() ?: 0;
             
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            // Pendientes
+            $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ? AND status = 'PENDIENTE'";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$userId]);
+            $pendientes = $stmt->fetchColumn() ?: 0;
             
-            $datos = [
-                'nombre' => $nombre,
-                'email' => $email,
-                'telefono' => $telefono,
-                'especialidad' => $especialidad,
-                'password_hash' => $passwordHash,
-                'estado' => $estado
-            ];
+            // En Progreso
+            $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ? AND status = 'EN_PROCESO'";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$userId]);
+            $en_progreso = $stmt->fetchColumn() ?: 0;
             
-            $resultado = $model->crear($datos);
+            // Completadas
+            $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ? AND status IN ('CERRADA', 'APROBADA')";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$userId]);
+            $completadas = $stmt->fetchColumn() ?: 0;
             
-            if ($resultado) {
-                $_SESSION['success'] = 'Técnico creado correctamente';
-                $this->redirect('/produmar/tecnicos');
-            } else {
-                $_SESSION['error'] = 'Error al crear el técnico';
-                $this->redirect('/produmar/tecnicos/crear');
-            }
+            // Últimas órdenes
+            $sql = "SELECT om.id, om.titulo, om.prioridad, om.status as estado, om.fecha_creacion,
+                           a.nombre_area as area
+                    FROM ordenes_mantenimiento om
+                    LEFT JOIN areas a ON om.id_area = a.id_area
+                    WHERE om.tecnico_id = ?
+                    ORDER BY om.fecha_creacion DESC
+                    LIMIT 10";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$userId]);
+            $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-        } catch (Exception $e) {
-            error_log("Error en guardar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al crear el técnico: ' . $e->getMessage();
-            $this->redirect('/produmar/tecnicos/crear');
-        }
-    }
-
-    /**
-     * Formulario para editar técnico
-     * URL: /tecnicos/editar/{id}
-     */
-    public function editar($id) {
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $tecnico = $model->obtenerPorId($id);
-            
-            if (!$tecnico) {
-                $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/produmar/tecnicos');
-            }
-            
-            $this->view('tecnicos/editar', [
-                'tecnico' => $tecnico,
-                'accion' => 'editar'
+            $this->jsonResponse([
+                'total' => $total,
+                'pendientes' => $pendientes,
+                'en_progreso' => $en_progreso,
+                'completadas' => $completadas,
+                'ordenes' => $ordenes
             ]);
             
         } catch (Exception $e) {
-            error_log("Error en editar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el técnico';
-            $this->redirect('/produmar/tecnicos');
+            error_log("Error en dashboardData: " . $e->getMessage());
+            $this->jsonResponse([
+                'total' => 0,
+                'pendientes' => 0,
+                'en_progreso' => 0,
+                'completadas' => 0,
+                'ordenes' => []
+            ]);
         }
     }
 
     /**
-     * Actualizar técnico
-     * URL: /tecnicos/actualizar/{id} (POST)
+     * Mis órdenes
+     * URL: /tecnico/mis_ordenes
      */
-    public function actualizar($id) {
-        $this->requirePost();
-        
-        $nombre = $this->post('nombre', '');
-        $email = $this->post('email', '');
-        $telefono = $this->post('telefono', '');
-        $especialidad = $this->post('especialidad', '');
-        $password = $this->post('password', '');
-        $estado = $this->post('estado', 'activo');
-        
-        if (empty($nombre) || empty($email)) {
-            $_SESSION['error'] = 'Nombre y email son obligatorios';
-            $this->redirect('/produmar/tecnicos/editar/' . $id);
-        }
-        
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/produmar/tecnicos/editar/' . $id);
-        }
-        
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            
-            // Verificar si el email ya existe (excepto el actual)
-            $existente = $model->obtenerPorEmail($email);
-            if ($existente && $existente['id'] != $id) {
-                $_SESSION['error'] = 'El email ya está registrado por otro usuario';
-                $this->redirect('/produmar/tecnicos/editar/' . $id);
-            }
-            
-            $datos = [
-                'nombre' => $nombre,
-                'email' => $email,
-                'telefono' => $telefono,
-                'especialidad' => $especialidad,
-                'estado' => $estado
-            ];
-            
-            $resultado = $model->actualizar($id, $datos);
-            
-            // Si se proporcionó nueva contraseña, actualizarla
-            if (!empty($password)) {
-                if (strlen($password) < 6) {
-                    $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-                    $this->redirect('/produmar/tecnicos/editar/' . $id);
-                }
-                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-                $model->actualizarPassword($id, $passwordHash);
-            }
-            
-            if ($resultado) {
-                $_SESSION['success'] = 'Técnico actualizado correctamente';
-            } else {
-                $_SESSION['error'] = 'Error al actualizar el técnico';
-            }
-            
-        } catch (Exception $e) {
-            error_log("Error en actualizar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al actualizar el técnico: ' . $e->getMessage();
-        }
-        
-        $this->redirect('/produmar/tecnicos');
+    public function mis_ordenes() {
+        $this->view('tecnico/mis_ordenes');
     }
 
     /**
-     * Eliminar técnico
-     * URL: /tecnicos/eliminar/{id} (POST)
+     * Lista de mis órdenes (AJAX)
+     * URL: /tecnico/mis_ordenes_list
      */
-    public function eliminar($id) {
+    public function mis_ordenes_list() {
+        try {
+            $userId = $this->authHelper->getUserId();
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+            $offset = ($page - 1) * $limit;
+            
+            $sql = "SELECT om.*, a.nombre_area as area
+                    FROM ordenes_mantenimiento om
+                    LEFT JOIN areas a ON om.id_area = a.id_area
+                    WHERE om.tecnico_id = ?";
+            $params = [$userId];
+            
+            if (!empty($_GET['estado'])) {
+                $sql .= " AND om.status = ?";
+                $params[] = $_GET['estado'];
+            }
+            
+            if (!empty($_GET['prioridad'])) {
+                $sql .= " AND om.prioridad = ?";
+                $params[] = $_GET['prioridad'];
+            }
+            
+            if (!empty($_GET['fecha'])) {
+                $sql .= " AND DATE(om.fecha_creacion) = ?";
+                $params[] = $_GET['fecha'];
+            }
+            
+            $sql .= " ORDER BY om.fecha_creacion DESC LIMIT ? OFFSET ?";
+            $params[] = $limit;
+            $params[] = $offset;
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Total
+            $sqlCount = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ?";
+            $stmtCount = $this->db->prepare($sqlCount);
+            $stmtCount->execute([$userId]);
+            $total = $stmtCount->fetchColumn() ?: 0;
+            
+            $this->jsonResponse([
+                'ordenes' => $ordenes,
+                'total' => $total,
+                'paginas' => ceil($total / $limit)
+            ]);
+            
+        } catch (Exception $e) {
+            error_log("Error en mis_ordenes_list: " . $e->getMessage());
+            $this->jsonResponse(['ordenes' => [], 'total' => 0, 'paginas' => 0]);
+        }
+    }
+
+    /**
+     * Detalle de una orden
+     * URL: /tecnico/detalle_orden/{id}
+     */
+    public function detalle_orden($id) {
+        try {
+            $userId = $this->authHelper->getUserId();
+            
+            $sql = "SELECT om.*, a.nombre_area as area, t.nombre as tecnico
+                    FROM ordenes_mantenimiento om
+                    LEFT JOIN areas a ON om.id_area = a.id_area
+                    LEFT JOIN tecnicos t ON om.tecnico_id = t.id
+                    WHERE om.id = ? AND om.tecnico_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id, $userId]);
+            $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$orden) {
+                $_SESSION['error'] = 'Orden no encontrada o no te pertenece';
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
+                return;
+            }
+            
+            $this->view('tecnico/detalle_orden', ['orden' => $orden]);
+            
+        } catch (Exception $e) {
+            error_log("Error en detalle_orden: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cargar la orden';
+            $this->redirect('/proyecto/tecnico/mis_ordenes');
+        }
+    }
+
+    /**
+     * Formulario para cerrar una orden
+     * URL: /tecnico/cerrar_orden/{id}
+     */
+    public function cerrar_orden($id) {
+        try {
+            $userId = $this->authHelper->getUserId();
+            
+            $sql = "SELECT * FROM ordenes_mantenimiento WHERE id = ? AND tecnico_id = ? 
+                    AND status IN ('PENDIENTE', 'EN_PROCESO')";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id, $userId]);
+            $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$orden) {
+                $_SESSION['error'] = 'Orden no encontrada o no se puede cerrar';
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
+                return;
+            }
+            
+            $this->view('tecnico/cerrar_orden', ['orden' => $orden]);
+            
+        } catch (Exception $e) {
+            error_log("Error en cerrar_orden: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cargar la orden';
+            $this->redirect('/proyecto/tecnico/mis_ordenes');
+        }
+    }
+
+    /**
+     * Procesar cierre de una orden
+     * URL: /tecnico/cerrar/{id} (POST)
+     */
+    public function cerrar($id) {
         $this->requirePost();
         
+        $userId = $this->authHelper->getUserId();
+        $descripcion = $this->post('descripcion_cierre', '');
+        $tiempo = $this->post('tiempo_invertido', 0);
+        $repuestos = $this->post('repuestos_utilizados', '');
+        $satisfactorio = $this->post('satisfactorio', 0) ? 1 : 0;
+        
+        if (empty($descripcion)) {
+            $_SESSION['error'] = 'La descripción del trabajo es obligatoria';
+            $this->redirect('/proyecto/tecnico/cerrar_orden/' . $id);
+            return;
+        }
+        
+        if ($tiempo <= 0) {
+            $_SESSION['error'] = 'El tiempo invertido debe ser mayor a 0';
+            $this->redirect('/proyecto/tecnico/cerrar_orden/' . $id);
+            return;
+        }
+        
         try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $resultado = $model->eliminar($id);
+            // Verificar que la orden existe y pertenece al técnico
+            $sql = "SELECT id FROM ordenes_mantenimiento WHERE id = ? AND tecnico_id = ? 
+                    AND status IN ('PENDIENTE', 'EN_PROCESO')";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id, $userId]);
+            if (!$stmt->fetch()) {
+                $_SESSION['error'] = 'Orden no encontrada o no se puede cerrar';
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
+                return;
+            }
             
-            if ($resultado) {
-                $_SESSION['success'] = 'Técnico eliminado correctamente';
+            // Actualizar la orden
+            $sql = "UPDATE ordenes_mantenimiento SET 
+                        descripcion_cierre = ?,
+                        tiempo_invertido = ?,
+                        repuestos_utilizados = ?,
+                        satisfactorio = ?,
+                        status = 'CERRADA',
+                        fecha_cierre = NOW()
+                    WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute([$descripcion, $tiempo, $repuestos, $satisfactorio, $id]);
+            
+            if ($result) {
+                $_SESSION['success'] = 'Orden cerrada correctamente. Esperando supervisión.';
+                $this->redirect('/proyecto/tecnico/mis_ordenes');
             } else {
-                $_SESSION['error'] = 'Error al eliminar el técnico';
+                $_SESSION['error'] = 'Error al cerrar la orden';
+                $this->redirect('/proyecto/tecnico/cerrar_orden/' . $id);
             }
             
         } catch (Exception $e) {
-            error_log("Error en eliminar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al eliminar el técnico';
+            error_log("Error en cerrar: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cerrar la orden: ' . $e->getMessage();
+            $this->redirect('/proyecto/tecnico/cerrar_orden/' . $id);
         }
-        
-        $this->redirect('/produmar/tecnicos');
     }
 }

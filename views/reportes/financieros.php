@@ -1,9 +1,9 @@
 <?php
 // views/reportes/financieros.php
-// Ubicación: C:\xampp\htdocs\produmar\views\reportes\financieros.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\reportes\financieros.php
 
 $titulo = "Reportes Financieros";
-$seccion = "reportes";
+$seccion = "financieros";  // 👈 CAMBIADO de "reportes" a "financieros"
 include_once __DIR__ . '/../layouts/header.php';
 ?>
 
@@ -27,7 +27,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <!-- Filtros -->
             <div class="card mb-4">
                 <div class="card-body">
-                    <form method="GET" action="/produmar/reportes/financieros" class="row g-3 align-items-end">
+                    <form method="GET" action="/proyecto/reportes/financieros" class="row g-3 align-items-end">
                         <div class="col-md-3">
                             <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
                             <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
@@ -44,7 +44,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             </button>
                         </div>
                         <div class="col-md-3">
-                            <a href="/produmar/reportes/financieros" class="btn btn-secondary w-100">
+                            <a href="/proyecto/reportes/financieros" class="btn btn-secondary w-100">
                                 <i class="fas fa-undo"></i> Limpiar
                             </a>
                         </div>
@@ -262,7 +262,7 @@ include_once __DIR__ . '/../layouts/header.php';
     <?php endif; ?>
 
     // Distribución de Costos
-    <?php if ($stats['total_costos'] > 0): ?>
+    <?php if (isset($stats['total_costos']) && $stats['total_costos'] > 0): ?>
     const ctxDist = document.getElementById('distribucionChart').getContext('2d');
     new Chart(ctxDist, {
         type: 'doughnut',
@@ -393,7 +393,7 @@ include_once __DIR__ . '/../layouts/header.php';
     function exportarReporte(tipo) {
         const params = new URLSearchParams(window.location.search);
         params.set('tipo', tipo);
-        window.location.href = '/produmar/reportes/financieros/exportar?' + params.toString();
+        window.location.href = '/proyecto/reportes/financieros/exportar?' + params.toString();
     }
 </script>
 

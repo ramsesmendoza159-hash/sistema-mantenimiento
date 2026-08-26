@@ -1,5 +1,10 @@
 <?php
 // views/tecnicos/index.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\tecnicos\index.php
+
+// Asegurar que las variables existan
+$tecnicos = $tecnicos ?? [];
+$estadisticas = $estadisticas ?? ['total' => 0, 'activos' => 0, 'inactivos' => 0];
 
 $titulo = "Gestión de Técnicos";
 $seccion = "tecnicos";
@@ -14,7 +19,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2"><i class="fas fa-users-cog"></i> Gestión de Técnicos</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
-                    <a href="/produmar/tecnicos/crear" class="btn btn-primary">
+                    <a href="/proyecto/tecnicos/crear" class="btn btn-primary">
                         <i class="fas fa-plus-circle"></i> Nuevo Técnico
                     </a>
                 </div>
@@ -101,10 +106,10 @@ include_once __DIR__ . '/../layouts/header.php';
                                             </td>
                                             <td>
                                                 <div class="btn-group" role="group">
-                                                    <a href="/produmar/tecnicos/editar/<?php echo $tecnico['id']; ?>" class="btn btn-sm btn-warning" title="Editar">
+                                                    <a href="/proyecto/tecnicos/editar/<?php echo $tecnico['id']; ?>" class="btn btn-sm btn-warning" title="Editar">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
-                                                    <form action="/produmar/tecnicos/eliminar/<?php echo $tecnico['id']; ?>" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este técnico?')">
+                                                    <form action="/proyecto/tecnicos/eliminar/<?php echo $tecnico['id']; ?>" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este técnico?')">
                                                         <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
                                                             <i class="fas fa-trash"></i>
                                                         </button>

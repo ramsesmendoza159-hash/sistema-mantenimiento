@@ -1,5 +1,6 @@
 <?php
 // helpers/AuthHelper.php
+// Ubicación: C:\xampp\htdocs\proyecto\helpers\AuthHelper.php
 
 class AuthHelper {
     
@@ -79,7 +80,7 @@ class AuthHelper {
      */
     public function redirectByRole() {
         if (!$this->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit();
         }
 
@@ -87,16 +88,16 @@ class AuthHelper {
         
         switch ($role) {
             case 'admin':
-                header('Location: /produmar/admin/dashboard');
+                header('Location: /proyecto/admin/dashboard');
                 break;
             case 'supervisor':
-                header('Location: /produmar/supervisor');
+                header('Location: /proyecto/supervisor');
                 break;
             case 'tecnico':
-                header('Location: /produmar/tecnico');
+                header('Location: /proyecto/tecnico');
                 break;
             default:
-                header('Location: /produmar/dashboard');
+                header('Location: /proyecto/dashboard');
                 break;
         }
         exit();
@@ -117,7 +118,7 @@ class AuthHelper {
         }
         
         session_destroy();
-        header('Location: /produmar/auth/login');
+        header('Location: /proyecto/auth/login');
         exit();
     }
 
@@ -126,7 +127,7 @@ class AuthHelper {
      */
     public function checkAccess($allowedRoles = []) {
         if (!$this->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit();
         }
 

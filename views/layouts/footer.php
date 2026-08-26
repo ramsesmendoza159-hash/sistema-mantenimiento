@@ -1,6 +1,6 @@
 <?php
 // views/layouts/footer.php
-// Ubicación: C:\xampp\htdocs\produmar\views\layouts\footer.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\layouts\footer.php
 ?>
 
     </main>

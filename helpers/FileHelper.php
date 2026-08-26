@@ -1,6 +1,6 @@
 <?php
 // helpers/FileHelper.php
-// Ubicación: C:\xampp\htdocs\produmar\helpers\FileHelper.php
+// Ubicación: C:\xampp\htdocs\proyecto\helpers\FileHelper.php
 
 class FileHelper
 {

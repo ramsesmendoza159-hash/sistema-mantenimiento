@@ -1,6 +1,6 @@
 <?php
 // model/PlantasModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\PlantasModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\PlantasModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';

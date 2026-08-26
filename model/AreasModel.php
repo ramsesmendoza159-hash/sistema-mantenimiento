@@ -1,6 +1,6 @@
 <?php
 // model/AreasModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\AreasModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\AreasModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';

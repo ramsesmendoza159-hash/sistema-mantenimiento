@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -11,7 +11,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $orden = $orden ?? null;
 if (!$orden) {
-    header('Location: /produmar/supervisor/ordenes');
+    header('Location: /proyecto/supervisor/ordenes');
     exit();
 }
 ?>
@@ -23,7 +23,7 @@ if (!$orden) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Revisar Orden #<?php echo $orden['id']; ?></h1>
-                <a href="/produmar/supervisor/ordenes" class="btn btn-secondary">
+                <a href="/proyecto/supervisor/ordenes" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
@@ -41,8 +41,8 @@ if (!$orden) {
                                     <p><strong>Título:</strong> <?php echo htmlspecialchars($orden['titulo']); ?></p>
                                     <p><strong>Área:</strong> <?php echo $orden['area'] ?? 'N/A'; ?></p>
                                     <p><strong>Prioridad:</strong> 
-                                        <span class="badge bg-<?php echo $orden['prioridad'] === 'urgente' ? 'danger' : 
-                                                                 ($orden['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
+                                        <span class="badge bg-<?php echo $orden['prioridad'] === 'Urgente' ? 'danger' : 
+                                                                 ($orden['prioridad'] === 'Alta' ? 'warning' : 'info'); ?>">
                                             <?php echo $orden['prioridad']; ?>
                                         </span>
                                     </p>
@@ -84,8 +84,8 @@ if (!$orden) {
                             <div class="row g-2">
                                 <?php foreach (explode(',', $orden['evidencias']) as $evidencia): ?>
                                     <div class="col-md-3 col-6">
-                                        <a href="/produmar/uploads/evidencias/<?php echo trim($evidencia); ?>" target="_blank">
-                                            <img src="/produmar/uploads/evidencias/<?php echo trim($evidencia); ?>" 
+                                        <a href="/proyecto/uploads/evidencias/<?php echo trim($evidencia); ?>" target="_blank">
+                                            <img src="/proyecto/uploads/evidencias/<?php echo trim($evidencia); ?>" 
                                                  alt="Evidencia" class="img-fluid rounded" style="height: 150px; width: 100%; object-fit: cover;">
                                         </a>
                                     </div>
@@ -103,7 +103,7 @@ if (!$orden) {
                             <h5 class="mb-0">Revisión de Supervisión</h5>
                         </div>
                         <div class="card-body">
-                            <form action="/produmar/supervisor/guardar_revision" method="POST">
+                            <form action="/proyecto/supervisor/guardar_revision" method="POST">
                                 <input type="hidden" name="orden_id" value="<?php echo $orden['id']; ?>">
                                 
                                 <div class="mb-3">
@@ -122,8 +122,8 @@ if (!$orden) {
                                     <label for="estado" class="form-label">Decisión *</label>
                                     <select class="form-select" id="estado" name="estado" required>
                                         <option value="">Seleccionar...</option>
-                                        <option value="aprobada">✅ Aprobar</option>
-                                        <option value="rechazada">❌ Rechazar</option>
+                                        <option value="APROBADA">✅ Aprobar</option>
+                                        <option value="RECHAZADA">❌ Rechazar</option>
                                     </select>
                                 </div>
 

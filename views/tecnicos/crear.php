@@ -1,5 +1,6 @@
 <?php
 // views/tecnicos/crear.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\tecnicos\crear.php
 
 $titulo = "Nuevo Técnico";
 $seccion = "tecnicos";
@@ -13,7 +14,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2"><i class="fas fa-user-plus"></i> Nuevo Técnico</h1>
-                <a href="/produmar/tecnicos" class="btn btn-secondary">
+                <a href="/proyecto/tecnicos" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Volver
                 </a>
             </div>
@@ -29,7 +30,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
             <div class="card">
                 <div class="card-body">
-                    <form action="/produmar/tecnicos/guardar" method="POST">
+                    <form action="/proyecto/tecnicos/guardar" method="POST">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
@@ -84,7 +85,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
                         <hr>
                         <div class="d-flex justify-content-end">
-                            <a href="/produmar/tecnicos" class="btn btn-secondary me-2">Cancelar</a>
+                            <a href="/proyecto/tecnicos" class="btn btn-secondary me-2">Cancelar</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Guardar
                             </button>

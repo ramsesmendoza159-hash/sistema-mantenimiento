@@ -1,6 +1,6 @@
 <?php
 // controller/ReporteFinancieroController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\ReporteFinancieroController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\ReporteFinancieroController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -15,14 +15,14 @@ class ReporteFinancieroController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -143,7 +143,7 @@ class ReporteFinancieroController extends Controller {
             
             if (empty($datos)) {
                 $_SESSION['error'] = 'No hay datos financieros para exportar en el período seleccionado';
-                $this->redirect('/produmar/reportes/financieros');
+                $this->redirect('/proyecto/reportes/financieros');
             }
             
             // Generar CSV
@@ -170,7 +170,7 @@ class ReporteFinancieroController extends Controller {
         } catch (Exception $e) {
             error_log("Error al exportar reporte financiero: " . $e->getMessage());
             $_SESSION['error'] = 'Error al exportar el reporte financiero';
-            $this->redirect('/produmar/reportes/financieros');
+            $this->redirect('/proyecto/reportes/financieros');
         }
     }
 }

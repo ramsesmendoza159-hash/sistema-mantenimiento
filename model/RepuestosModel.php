@@ -1,6 +1,6 @@
 <?php
 // model/RepuestosModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\RepuestosModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\RepuestosModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';
@@ -13,23 +13,32 @@ class RepuestosModel {
     }
 
     /**
-     * Obtener todos los repuestos
+     * Obtener todos los repuestos con filtros mejorados
      */
     public function obtenerTodos($filtros = []) {
         try {
             $sql = "SELECT * FROM inventario WHERE 1=1";
             $params = [];
 
+            // Filtro por categoría
             if (!empty($filtros['categoria'])) {
                 $sql .= " AND categoria = ?";
                 $params[] = $filtros['categoria'];
             }
 
+            // Filtro por tipo (nuevo)
+            if (!empty($filtros['tipo'])) {
+                $sql .= " AND tipo = ?";
+                $params[] = $filtros['tipo'];
+            }
+
+            // Filtro por estado
             if (!empty($filtros['estado'])) {
                 $sql .= " AND estado = ?";
                 $params[] = $filtros['estado'];
             }
 
+            // Filtro de búsqueda
             if (!empty($filtros['buscar'])) {
                 $sql .= " AND (nombre LIKE ? OR codigo LIKE ? OR descripcion LIKE ?)";
                 $buscar = '%' . $filtros['buscar'] . '%';
@@ -38,8 +47,15 @@ class RepuestosModel {
                 $params[] = $buscar;
             }
 
-            if (!empty($filtros['stock_minimo'])) {
-                $sql .= " AND cantidad <= stock_minimo";
+            // Filtro por stock (mejorado)
+            if (!empty($filtros['stock'])) {
+                if ($filtros['stock'] === 'bajo') {
+                    $sql .= " AND cantidad <= stock_minimo";
+                } elseif ($filtros['stock'] === 'medio') {
+                    $sql .= " AND cantidad > stock_minimo AND cantidad <= 20";
+                } elseif ($filtros['stock'] === 'alto') {
+                    $sql .= " AND cantidad > 20";
+                }
             }
 
             $sql .= " ORDER BY nombre ASC";

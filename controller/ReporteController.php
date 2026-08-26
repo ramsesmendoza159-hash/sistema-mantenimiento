@@ -1,6 +1,6 @@
 <?php
 // controller/ReporteController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\ReporteController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\ReporteController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -14,14 +14,14 @@ class ReporteController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -274,7 +274,7 @@ class ReporteController extends Controller {
             
             if (empty($datos)) {
                 $_SESSION['error'] = 'No hay datos para exportar en el período seleccionado';
-                $this->redirect('/produmar/reportes');
+                $this->redirect('/proyecto/reportes');
             }
             
             // Generar CSV
@@ -303,7 +303,7 @@ class ReporteController extends Controller {
         } catch (Exception $e) {
             error_log("Error al exportar: " . $e->getMessage());
             $_SESSION['error'] = 'Error al exportar el reporte: ' . $e->getMessage();
-            $this->redirect('/produmar/reportes');
+            $this->redirect('/proyecto/reportes');
         }
     }
 
@@ -359,7 +359,7 @@ class ReporteController extends Controller {
             $total_costos = 0;
             $total_ordenes = 0;
             $_SESSION['error'] = 'Error al generar la vista de impresión';
-            $this->redirect('/produmar/reportes');
+            $this->redirect('/proyecto/reportes');
         }
         
         $this->view('reportes/imprimir', [
@@ -455,10 +455,10 @@ class ReporteController extends Controller {
                 GROUP BY prioridad
                 ORDER BY 
                     CASE prioridad
-                        WHEN 'URGENTE' THEN 1
-                        WHEN 'ALTA' THEN 2
+                        WHEN 'Urgente' THEN 1
+                        WHEN 'Alta' THEN 2
                         WHEN 'Media' THEN 3
-                        WHEN 'BAJA' THEN 4
+                        WHEN 'Baja' THEN 4
                         ELSE 5
                     END";
         

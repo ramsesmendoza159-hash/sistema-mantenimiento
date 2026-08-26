@@ -1,6 +1,6 @@
 <?php
 // model/ComponentesModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\ComponentesModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\ComponentesModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';

@@ -1,3 +1,9 @@
+<?php
+// views/supervisores/index.php
+$seccion = 'supervisores';  // 👈 ESTO ES LO QUE FALTABA
+$titulo = 'Gestión de Supervisores';
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -70,7 +76,7 @@
             <div class="col-md-9 ml-sm-auto col-lg-10 px-4 main-content">
                 <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2"><i class="fas fa-user-tie"></i> <?= isset($titulo) ? htmlspecialchars($titulo) : 'Gestión de Supervisores' ?></h1>
-                    <a href="/produmar/supervisores/crear" class="btn btn-primary">
+                    <a href="/proyecto/supervisores/crear" class="btn btn-primary">
                         <i class="fas fa-plus-circle"></i> Nuevo Supervisor
                     </a>
                 </div>
@@ -128,7 +134,7 @@
                 </div>
 
                 <div class="filtros-card">
-                    <form method="GET" action="/produmar/supervisores" class="row align-items-end">
+                    <form method="GET" action="/proyecto/supervisores" class="row align-items-end">
                         <div class="col-md-4">
                             <label for="buscar"><i class="fas fa-search"></i> Buscar</label>
                             <input type="text" name="buscar" id="buscar" class="form-control" 
@@ -147,7 +153,7 @@
                             <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search"></i> Filtrar</button>
                         </div>
                         <div class="col-md-2">
-                            <a href="/produmar/supervisores" class="btn btn-secondary w-100"><i class="fas fa-undo"></i> Limpiar</a>
+                            <a href="/proyecto/supervisores" class="btn btn-secondary w-100"><i class="fas fa-undo"></i> Limpiar</a>
                         </div>
                     </form>
                 </div>
@@ -189,7 +195,7 @@
                                             <td><?= isset($supervisor['fecha_creacion']) ? date('d/m/Y', strtotime($supervisor['fecha_creacion'])) : '' ?></td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="/produmar/supervisores/editar/<?= isset($supervisor['id']) ? (int)$supervisor['id'] : 0 ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                                                    <a href="/proyecto/supervisores/editar/<?= isset($supervisor['id']) ? (int)$supervisor['id'] : 0 ?>" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
                                                     <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#modalPassword<?= isset($supervisor['id']) ? (int)$supervisor['id'] : 0 ?>"><i class="fas fa-key"></i></button>
                                                     <button class="btn btn-sm <?= (isset($supervisor['estado']) && $supervisor['estado'] == 'activo') ? 'btn-secondary' : 'btn-success' ?>" data-toggle="modal" data-target="#modalEstado<?= isset($supervisor['id']) ? (int)$supervisor['id'] : 0 ?>">
                                                         <i class="fas fa-<?= (isset($supervisor['estado']) && $supervisor['estado'] == 'activo') ? 'pause' : 'play' ?>"></i>
@@ -220,7 +226,7 @@
             <div class="modal fade" id="modalPassword<?= (int)$supervisor['id'] ?>" tabindex="-1">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <form action="/produmar/supervisores/cambiarPassword/<?= (int)$supervisor['id'] ?>" method="POST">
+                        <form action="/proyecto/supervisores/cambiarPassword/<?= (int)$supervisor['id'] ?>" method="POST">
                             <div class="modal-header">
                                 <h5 class="modal-title"><i class="fas fa-key text-primary"></i> Cambiar Contraseña</h5>
                                 <button type="button" class="close" data-dismiss="modal">&times;</button>
@@ -247,7 +253,7 @@
             <div class="modal fade" id="modalEstado<?= (int)$supervisor['id'] ?>" tabindex="-1">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <form action="/produmar/supervisores/cambiarEstado/<?= (int)$supervisor['id'] ?>" method="POST">
+                        <form action="/proyecto/supervisores/cambiarEstado/<?= (int)$supervisor['id'] ?>" method="POST">
                             <div class="modal-header">
                                 <h5 class="modal-title"><?= (isset($supervisor['estado']) && $supervisor['estado'] == 'activo') ? '⛔ Inactivar' : '✅ Activar' ?></h5>
                                 <button type="button" class="close" data-dismiss="modal">&times;</button>
@@ -271,7 +277,7 @@
                 <div class="modal fade" id="modalEliminar<?= (int)$supervisor['id'] ?>" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
-                            <form action="/produmar/supervisores/eliminar/<?= (int)$supervisor['id'] ?>" method="POST">
+                            <form action="/proyecto/supervisores/eliminar/<?= (int)$supervisor['id'] ?>" method="POST">
                                 <div class="modal-header bg-danger text-white">
                                     <h5 class="modal-title"><i class="fas fa-trash"></i> Eliminar Supervisor</h5>
                                     <button type="button" class="close text-white" data-dismiss="modal">&times;</button>

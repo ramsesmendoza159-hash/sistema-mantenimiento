@@ -1,7 +1,13 @@
 <?php
-session_start();
+// views/reportes/index.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\reportes\index.php
+
+// ✅ ELIMINAR session_start() - ya está iniciada en el router principal
+// session_start(); // ❌ ELIMINAR ESTA LÍNEA
+
+// Verificar autenticación y rol
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'admin') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -34,7 +40,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <li>✅ Análisis de tiempos</li>
                                 <li>✅ Productividad por técnico</li>
                             </ul>
-                            <a href="/produmar/reportes/ordenes" class="btn btn-primary">
+                            <a href="/proyecto/reportes/ordenes" class="btn btn-primary">
                                 <i class="bi bi-file-earmark-text"></i> Generar Reporte
                             </a>
                         </div>
@@ -55,7 +61,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <li>✅ Eficiencia y rendimiento</li>
                                 <li>✅ Ranking de técnicos</li>
                             </ul>
-                            <a href="/produmar/reportes/tecnicos" class="btn btn-success">
+                            <a href="/proyecto/reportes/tecnicos" class="btn btn-success">
                                 <i class="bi bi-file-earmark-text"></i> Generar Reporte
                             </a>
                         </div>
@@ -76,7 +82,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <li>✅ Productos con bajo stock</li>
                                 <li>✅ Movimientos de inventario</li>
                             </ul>
-                            <a href="/produmar/reportes/inventario" class="btn btn-warning">
+                            <a href="/proyecto/reportes/inventario" class="btn btn-warning">
                                 <i class="bi bi-file-earmark-text"></i> Generar Reporte
                             </a>
                         </div>
@@ -97,7 +103,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <li>✅ Observaciones</li>
                                 <li>✅ Cumplimiento de estándares</li>
                             </ul>
-                            <a href="/produmar/reportes/supervision" class="btn btn-info">
+                            <a href="/proyecto/reportes/supervision" class="btn btn-info">
                                 <i class="bi bi-file-earmark-text"></i> Generar Reporte
                             </a>
                         </div>

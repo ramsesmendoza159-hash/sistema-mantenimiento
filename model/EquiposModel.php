@@ -1,6 +1,6 @@
 <?php
 // model/EquiposModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\EquiposModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\EquiposModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';

@@ -1,6 +1,6 @@
 <?php
 // model/OrdenTrabajo.php
-// Ubicación: C:\xampp\htdocs\produmar\model\OrdenTrabajo.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\OrdenTrabajo.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';
@@ -76,32 +76,163 @@ class OrdenTrabajo {
     }
 
     /**
-     * Obtener orden por ID con todos los detalles y costos
+     * Obtener orden por ID - VERSIÓN CORREGIDA CON MANEJO DE ERRORES ROBUSTO
+     * Esta versión maneja todos los casos de datos faltantes y errores de consulta
      */
     public function obtenerPorId($id) {
         try {
-            $sql = "SELECT o.*, 
-                           t.nombre as tecnico_nombre,
-                           t.tarifa as tarifa_tecnico,
-                           s.nombre as supervisor_nombre,
-                           p.nombre_planta,
-                           a.nombre_area,
-                           e.nombre_equipo,
-                           c.nombre_componente,
-                           (o.costo_repuestos + o.costo_mano_obra) as costo_total_calculado
-                    FROM ordenes_mantenimiento o
-                    LEFT JOIN tecnicos t ON o.tecnico_id = t.id
-                    LEFT JOIN supervisores s ON o.id_supervisor = s.id
-                    LEFT JOIN plantas p ON o.id_planta = p.id_planta
-                    LEFT JOIN areas a ON o.id_area = a.id_area
-                    LEFT JOIN equipos e ON o.id_equipo = e.id_equipo
-                    LEFT JOIN componentes c ON o.id_componente = c.id_componente
-                    WHERE o.id = ?";
+            // ✅ Primero obtener la orden básica
+            $sql = "SELECT * FROM ordenes_mantenimiento WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            $orden = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$orden) {
+                error_log("obtenerPorId: Orden con ID $id no encontrada");
+                return false;
+            }
+            
+            // ✅ Obtener datos relacionados por separado con manejo de errores
+            
+            // Técnico
+            if (!empty($orden['tecnico_id'])) {
+                try {
+                    $sql = "SELECT nombre, tarifa FROM tecnicos WHERE id = ?";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([$orden['tecnico_id']]);
+                    $tecnico = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($tecnico) {
+                        $orden['tecnico_nombre'] = $tecnico['nombre'];
+                        $orden['tarifa_tecnico'] = $tecnico['tarifa'] ?? 0;
+                    } else {
+                        // Técnico no encontrado - usar valores por defecto
+                        $orden['tecnico_nombre'] = 'Técnico ID: ' . $orden['tecnico_id'] . ' (no encontrado)';
+                        $orden['tarifa_tecnico'] = 0;
+                        error_log("obtenerPorId: Técnico ID " . $orden['tecnico_id'] . " no encontrado para orden $id");
+                    }
+                } catch (PDOException $e) {
+                    error_log("obtenerPorId: Error al obtener técnico para orden $id: " . $e->getMessage());
+                    $orden['tecnico_nombre'] = 'Error al cargar técnico';
+                    $orden['tarifa_tecnico'] = 0;
+                }
+            } else {
+                $orden['tecnico_nombre'] = 'Sin asignar';
+                $orden['tarifa_tecnico'] = 0;
+            }
+            
+            // Supervisor
+            if (!empty($orden['id_supervisor'])) {
+                try {
+                    $sql = "SELECT nombre FROM supervisores WHERE id = ?";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([$orden['id_supervisor']]);
+                    $supervisor = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($supervisor) {
+                        $orden['supervisor_nombre'] = $supervisor['nombre'];
+                    } else {
+                        $orden['supervisor_nombre'] = 'Supervisor ID: ' . $orden['id_supervisor'] . ' (no encontrado)';
+                        error_log("obtenerPorId: Supervisor ID " . $orden['id_supervisor'] . " no encontrado para orden $id");
+                    }
+                } catch (PDOException $e) {
+                    error_log("obtenerPorId: Error al obtener supervisor para orden $id: " . $e->getMessage());
+                    $orden['supervisor_nombre'] = 'Error al cargar supervisor';
+                }
+            } else {
+                $orden['supervisor_nombre'] = 'Sin asignar';
+            }
+            
+            // Planta
+            if (!empty($orden['id_planta'])) {
+                try {
+                    $sql = "SELECT nombre_planta FROM plantas WHERE id_planta = ?";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([$orden['id_planta']]);
+                    $planta = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($planta) {
+                        $orden['nombre_planta'] = $planta['nombre_planta'];
+                    } else {
+                        $orden['nombre_planta'] = 'Planta ID: ' . $orden['id_planta'] . ' (no encontrada)';
+                        error_log("obtenerPorId: Planta ID " . $orden['id_planta'] . " no encontrada para orden $id");
+                    }
+                } catch (PDOException $e) {
+                    error_log("obtenerPorId: Error al obtener planta para orden $id: " . $e->getMessage());
+                    $orden['nombre_planta'] = 'Error al cargar planta';
+                }
+            } else {
+                $orden['nombre_planta'] = 'Sin asignar';
+            }
+            
+            // Área
+            if (!empty($orden['id_area'])) {
+                try {
+                    $sql = "SELECT nombre_area FROM areas WHERE id_area = ?";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([$orden['id_area']]);
+                    $area = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($area) {
+                        $orden['nombre_area'] = $area['nombre_area'];
+                    } else {
+                        $orden['nombre_area'] = 'Área ID: ' . $orden['id_area'] . ' (no encontrada)';
+                        error_log("obtenerPorId: Área ID " . $orden['id_area'] . " no encontrada para orden $id");
+                    }
+                } catch (PDOException $e) {
+                    error_log("obtenerPorId: Error al obtener área para orden $id: " . $e->getMessage());
+                    $orden['nombre_area'] = 'Error al cargar área';
+                }
+            } else {
+                $orden['nombre_area'] = 'Sin asignar';
+            }
+            
+            // Equipo
+            if (!empty($orden['id_equipo'])) {
+                try {
+                    $sql = "SELECT nombre_equipo FROM equipos WHERE id_equipo = ?";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([$orden['id_equipo']]);
+                    $equipo = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($equipo) {
+                        $orden['nombre_equipo'] = $equipo['nombre_equipo'];
+                    } else {
+                        $orden['nombre_equipo'] = 'Equipo ID: ' . $orden['id_equipo'] . ' (no encontrado)';
+                        error_log("obtenerPorId: Equipo ID " . $orden['id_equipo'] . " no encontrado para orden $id");
+                    }
+                } catch (PDOException $e) {
+                    error_log("obtenerPorId: Error al obtener equipo para orden $id: " . $e->getMessage());
+                    $orden['nombre_equipo'] = 'Error al cargar equipo';
+                }
+            } else {
+                $orden['nombre_equipo'] = 'Sin asignar';
+            }
+            
+            // Componente
+            if (!empty($orden['id_componente'])) {
+                try {
+                    $sql = "SELECT nombre_componente FROM componentes WHERE id_componente = ?";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([$orden['id_componente']]);
+                    $componente = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($componente) {
+                        $orden['nombre_componente'] = $componente['nombre_componente'];
+                    } else {
+                        $orden['nombre_componente'] = 'Componente ID: ' . $orden['id_componente'] . ' (no encontrado)';
+                        error_log("obtenerPorId: Componente ID " . $orden['id_componente'] . " no encontrado para orden $id");
+                    }
+                } catch (PDOException $e) {
+                    error_log("obtenerPorId: Error al obtener componente para orden $id: " . $e->getMessage());
+                    $orden['nombre_componente'] = 'Error al cargar componente';
+                }
+            } else {
+                $orden['nombre_componente'] = 'Sin asignar';
+            }
+            
+            // Calcular costo total
+            $orden['costo_total_calculado'] = ($orden['costo_repuestos'] ?? 0) + ($orden['costo_mano_obra'] ?? 0);
+            
+            error_log("obtenerPorId: Orden con ID $id encontrada correctamente");
+            return $orden;
+            
         } catch (PDOException $e) {
-            error_log("Error en obtenerPorId (OrdenTrabajo): " . $e->getMessage());
+            error_log("Error en obtenerPorId: " . $e->getMessage());
             return false;
         }
     }
@@ -705,4 +836,5 @@ class OrdenTrabajo {
             return [];
         }
     }
-}
+} // Fin de la clase OrdenTrabajo
+?>

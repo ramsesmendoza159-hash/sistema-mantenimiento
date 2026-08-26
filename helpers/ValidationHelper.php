@@ -1,6 +1,6 @@
 <?php
 // helpers/ValidationHelper.php
-// Ubicación: C:\xampp\htdocs\produmar\helpers\ValidationHelper.php
+// Ubicación: C:\xampp\htdocs\proyecto\helpers\ValidationHelper.php
 
 class ValidationHelper
 {

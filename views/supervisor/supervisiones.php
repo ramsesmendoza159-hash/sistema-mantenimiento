@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -17,7 +17,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Mis Supervisiones</h1>
-                <a href="/produmar/supervisor" class="btn btn-secondary">
+                <a href="/proyecto/supervisor" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver al Panel
                 </a>
             </div>
@@ -30,8 +30,8 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label for="estado" class="form-label">Estado</label>
                             <select class="form-select" id="estado" name="estado">
                                 <option value="">Todos</option>
-                                <option value="aprobada">Aprobada</option>
-                                <option value="rechazada">Rechazada</option>
+                                <option value="APROBADA">Aprobada</option>
+                                <option value="RECHAZADA">Rechazada</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -102,7 +102,7 @@ include_once __DIR__ . '/../layouts/header.php';
         params.append('page', page);
         params.append('limit', porPagina);
 
-        fetch(`/produmar/supervisor/supervisionesList?${params.toString()}`)
+        fetch(`/proyecto/supervisor/supervisionesList?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 const tbody = document.getElementById('supervisionesBody');
@@ -111,7 +111,7 @@ include_once __DIR__ . '/../layouts/header.php';
                 if (data.supervisiones && data.supervisiones.length > 0) {
                     data.supervisiones.forEach(supervision => {
                         const tr = document.createElement('tr');
-                        const estadoClass = supervision.estado === 'aprobada' ? 'success' : 'danger';
+                        const estadoClass = supervision.estado === 'APROBADA' ? 'success' : 'danger';
                         const calificacionClass = supervision.calificacion >= 4 ? 'text-success' :
                                                   supervision.calificacion >= 3 ? 'text-warning' :
                                                   'text-danger';
@@ -127,7 +127,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <td>${supervision.cumple ? '✅ Sí' : '❌ No'}</td>
                             <td>${supervision.fecha_creacion}</td>
                             <td>
-                                <a href="/produmar/supervisor/ver_supervision/${supervision.id}" class="btn btn-sm btn-info">
+                                <a href="/proyecto/supervisor/ver_supervision/${supervision.id}" class="btn btn-sm btn-info">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>

@@ -1,7 +1,14 @@
 <?php
-session_start();
+// views/reportes/ordenes.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\reportes\ordenes.php
+
+// ✅ Verificar si la sesión ya está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'admin') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -43,10 +50,10 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label for="estado" class="form-label">Estado</label>
                             <select class="form-select" id="estado" name="estado">
                                 <option value="">Todos</option>
-                                <option value="pendiente">Pendiente</option>
-                                <option value="en_progreso">En Progreso</option>
-                                <option value="completada">Completada</option>
-                                <option value="cancelada">Cancelada</option>
+                                <option value="PENDIENTE">Pendiente</option>
+                                <option value="EN_PROCESO">En Progreso</option>
+                                <option value="CERRADA">Completada</option>
+                                <option value="CANCELADA">Cancelada</option>
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
@@ -139,7 +146,7 @@ include_once __DIR__ . '/../layouts/header.php';
         params.append('page', page);
         params.append('limit', porPagina);
 
-        fetch(`/produmar/reportes/ordenesData?${params.toString()}`)
+        fetch(`/proyecto/reportes/ordenesData?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 // Actualizar resumen
@@ -156,17 +163,19 @@ include_once __DIR__ . '/../layouts/header.php';
                     data.ordenes.forEach(orden => {
                         const tr = document.createElement('tr');
                         const prioridadClass = {
-                            'baja': 'info',
-                            'media': 'warning',
-                            'alta': 'danger',
-                            'urgente': 'danger'
+                            'Baja': 'info',
+                            'Media': 'warning',
+                            'Alta': 'danger',
+                            'Urgente': 'danger'
                         }[orden.prioridad] || 'secondary';
 
                         const estadoClass = {
-                            'pendiente': 'warning',
-                            'en_progreso': 'info',
-                            'completada': 'success',
-                            'cancelada': 'danger'
+                            'PENDIENTE': 'warning',
+                            'EN_PROCESO': 'info',
+                            'CERRADA': 'success',
+                            'APROBADA': 'success',
+                            'CANCELADA': 'danger',
+                            'RECHAZADA': 'danger'
                         }[orden.estado] || 'secondary';
 
                         tr.innerHTML = `
@@ -223,12 +232,12 @@ include_once __DIR__ . '/../layouts/header.php';
 
     function exportarExcel() {
         const params = new URLSearchParams(new FormData(document.getElementById('filtrosForm')));
-        window.location.href = `/produmar/reportes/ordenesExcel?${params.toString()}`;
+        window.location.href = `/proyecto/reportes/ordenesExcel?${params.toString()}`;
     }
 
     function exportarPDF() {
         const params = new URLSearchParams(new FormData(document.getElementById('filtrosForm')));
-        window.location.href = `/produmar/reportes/ordenesPDF?${params.toString()}`;
+        window.location.href = `/proyecto/reportes/ordenesPDF?${params.toString()}`;
     }
 
     document.getElementById('filtrosForm').addEventListener('submit', function(e) {

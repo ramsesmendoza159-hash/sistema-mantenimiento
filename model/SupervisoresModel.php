@@ -1,6 +1,6 @@
 <?php
 // model/SupervisoresModel.php
-// Ubicación: C:\xampp\htdocs\produmar\model\SupervisoresModel.php
+// Ubicación: C:\xampp\htdocs\proyecto\model\SupervisoresModel.php
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';

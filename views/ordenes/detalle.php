@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id'])) {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -14,7 +14,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $orden = $orden ?? null;
 if (!$orden) {
-    header('Location: /produmar/ordenes');
+    header('Location: /proyecto/ordenes');
     exit();
 }
 ?>
@@ -26,7 +26,7 @@ if (!$orden) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Detalle de Orden #<?php echo $orden['id']; ?></h1>
-                <a href="/produmar/ordenes" class="btn btn-secondary">
+                <a href="/proyecto/ordenes" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
@@ -53,8 +53,8 @@ if (!$orden) {
                                 <tr>
                                     <th>Prioridad</th>
                                     <td>
-                                        <span class="badge bg-<?php echo $orden['prioridad'] === 'urgente' ? 'danger' : 
-                                                                 ($orden['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
+                                        <span class="badge bg-<?php echo $orden['prioridad'] === 'Urgente' ? 'danger' : 
+                                                                 ($orden['prioridad'] === 'Alta' ? 'warning' : 'info'); ?>">
                                             <?php echo $orden['prioridad']; ?>
                                         </span>
                                     </td>
@@ -62,10 +62,13 @@ if (!$orden) {
                                 <tr>
                                     <th>Estado</th>
                                     <td>
-                                        <span class="badge bg-<?php echo $orden['estado'] === 'completada' ? 'success' : 
-                                                                 ($orden['estado'] === 'en_progreso' ? 'info' : 
-                                                                 ($orden['estado'] === 'cancelada' ? 'danger' : 'warning')); ?>">
-                                            <?php echo $orden['estado']; ?>
+                                        <span class="badge bg-<?php 
+                                            $estado = $orden['estado'] ?? 'PENDIENTE';
+                                            echo $estado === 'CERRADA' || $estado === 'APROBADA' ? 'success' : 
+                                                 ($estado === 'EN_PROCESO' ? 'info' : 
+                                                 ($estado === 'CANCELADA' || $estado === 'RECHAZADA' ? 'danger' : 'warning')); 
+                                        ?>">
+                                            <?php echo $estado; ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -108,7 +111,10 @@ if (!$orden) {
                     <h5>Descripción</h5>
                     <p><?php echo nl2br(htmlspecialchars($orden['descripcion'])); ?></p>
 
-                    <?php if ($orden['estado'] === 'completada' || $orden['estado'] === 'cancelada'): ?>
+                    <?php 
+                    $estado = $orden['estado'] ?? 'PENDIENTE';
+                    if ($estado === 'CERRADA' || $estado === 'APROBADA' || $estado === 'EJECUTADA'): 
+                    ?>
                         <hr>
                         <h5>Detalles de Cierre</h5>
                         <?php if ($orden['descripcion_cierre']): ?>

@@ -1,6 +1,6 @@
 <?php
 // helpers/Router.php
-// Ubicación: C:\xampp\htdocs\produmar\helpers\Router.php
+// Ubicación: C:\xampp\htdocs\proyecto\helpers\Router.php
 
 class Router
 {
@@ -115,7 +115,7 @@ class Router
         if (!empty($message)) {
             echo "<p><strong>Error:</strong> $message</p>";
         }
-        echo '<p><a href="/produmar/auth/login">Ir al inicio</a></p>';
+        echo '<p><a href="/proyecto/auth/login">Ir al inicio</a></p>';
         exit;
     }
 

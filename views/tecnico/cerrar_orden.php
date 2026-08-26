@@ -1,7 +1,14 @@
 <?php
-session_start();
+// views/tecnico/cerrar_orden.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\tecnico\cerrar_orden.php
+
+// ✅ Verificar si la sesión ya está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'tecnico') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -11,7 +18,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 $orden = $orden ?? null;
 if (!$orden) {
-    header('Location: /produmar/tecnico');
+    header('Location: /proyecto/tecnico');
     exit();
 }
 ?>
@@ -23,7 +30,7 @@ if (!$orden) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Cerrar Orden #<?php echo $orden['id']; ?></h1>
-                <a href="/produmar/tecnico/mis_ordenes" class="btn btn-secondary">
+                <a href="/proyecto/tecnico/mis_ordenes" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
@@ -35,7 +42,7 @@ if (!$orden) {
                             <h5 class="mb-0">Completar Trabajo</h5>
                         </div>
                         <div class="card-body">
-                            <form action="/produmar/tecnico/cerrar/<?php echo $orden['id']; ?>" method="POST" enctype="multipart/form-data">
+                            <form action="/proyecto/tecnico/cerrar/<?php echo $orden['id']; ?>" method="POST" enctype="multipart/form-data">
                                 <div class="mb-3">
                                     <label for="descripcion_cierre" class="form-label">Descripción detallada del trabajo *</label>
                                     <textarea class="form-control" id="descripcion_cierre" name="descripcion_cierre" 
@@ -78,7 +85,7 @@ if (!$orden) {
 
                                 <hr>
                                 <div class="d-flex justify-content-end">
-                                    <a href="/produmar/tecnico/mis_ordenes" class="btn btn-secondary me-2">
+                                    <a href="/proyecto/tecnico/mis_ordenes" class="btn btn-secondary me-2">
                                         Cancelar
                                     </a>
                                     <button type="submit" class="btn btn-success">
@@ -96,14 +103,17 @@ if (!$orden) {
                             <h5 class="mb-0">Información de la Orden</h5>
                         </div>
                         <div class="card-body">
-                            <p><strong>Título:</strong> <?php echo htmlspecialchars($orden['titulo']); ?></p>
+                            <p><strong>Título:</strong> <?php echo htmlspecialchars($orden['titulo'] ?? ''); ?></p>
                             <p><strong>Descripción:</strong></p>
-                            <p class="small"><?php echo nl2br(htmlspecialchars(substr($orden['descripcion'], 0, 150))); ?></p>
+                            <p class="small"><?php echo nl2br(htmlspecialchars(substr($orden['descripcion'] ?? 'Sin descripción', 0, 150))); ?></p>
                             <p><strong>Área:</strong> <?php echo $orden['area'] ?? 'N/A'; ?></p>
                             <p><strong>Prioridad:</strong> 
-                                <span class="badge bg-<?php echo $orden['prioridad'] === 'urgente' ? 'danger' : 
-                                                         ($orden['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
-                                    <?php echo $orden['prioridad']; ?>
+                                <span class="badge bg-<?php 
+                                    $prioridad = $orden['prioridad'] ?? 'Media';
+                                    echo $prioridad === 'Urgente' ? 'danger' : 
+                                         ($prioridad === 'Alta' ? 'warning' : 'info'); 
+                                ?>">
+                                    <?php echo $prioridad; ?>
                                 </span>
                             </p>
                         </div>

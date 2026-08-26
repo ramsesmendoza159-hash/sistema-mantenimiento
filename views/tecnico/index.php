@@ -1,7 +1,14 @@
 <?php
-session_start();
+// views/tecnico/index.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\tecnico\index.php
+
+// ✅ Verificar si la sesión ya está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'tecnico') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -17,7 +24,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Panel de Técnico</h1>
-                <a href="/produmar/tecnico/mis_ordenes" class="btn btn-primary">
+                <a href="/proyecto/tecnico/mis_ordenes" class="btn btn-primary">
                     <i class="bi bi-list-task"></i> Mis Órdenes
                 </a>
             </div>
@@ -89,7 +96,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <script>
     function cargarDashboard() {
-        fetch('/produmar/tecnico/dashboardData')
+        fetch('/proyecto/tecnico/dashboardData')
             .then(response => response.json())
             .then(data => {
                 document.getElementById('total').textContent = data.total || 0;
@@ -104,17 +111,18 @@ include_once __DIR__ . '/../layouts/header.php';
                     data.ordenes.forEach(orden => {
                         const tr = document.createElement('tr');
                         const prioridadClass = {
-                            'baja': 'info',
-                            'media': 'warning',
-                            'alta': 'danger',
-                            'urgente': 'danger'
+                            'Baja': 'info',
+                            'Media': 'warning',
+                            'Alta': 'danger',
+                            'Urgente': 'danger'
                         }[orden.prioridad] || 'secondary';
 
                         const estadoClass = {
-                            'pendiente': 'warning',
-                            'en_progreso': 'info',
-                            'completada': 'success',
-                            'cancelada': 'danger'
+                            'PENDIENTE': 'warning',
+                            'EN_PROCESO': 'info',
+                            'CERRADA': 'success',
+                            'APROBADA': 'success',
+                            'CANCELADA': 'danger'
                         }[orden.estado] || 'secondary';
 
                         tr.innerHTML = `
@@ -124,11 +132,11 @@ include_once __DIR__ . '/../layouts/header.php';
                             <td><span class="badge bg-${estadoClass}">${orden.estado}</span></td>
                             <td>${orden.fecha_creacion}</td>
                             <td>
-                                <a href="/produmar/tecnico/detalle_orden/${orden.id}" class="btn btn-sm btn-info">
+                                <a href="/proyecto/tecnico/detalle_orden/${orden.id}" class="btn btn-sm btn-info">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                ${orden.estado !== 'completada' && orden.estado !== 'cancelada' ? 
-                                    `<a href="/produmar/tecnico/cerrar_orden/${orden.id}" class="btn btn-sm btn-success">
+                                ${orden.estado !== 'CERRADA' && orden.estado !== 'APROBADA' && orden.estado !== 'CANCELADA' ? 
+                                    `<a href="/proyecto/tecnico/cerrar_orden/${orden.id}" class="btn btn-sm btn-success">
                                         <i class="bi bi-check-circle"></i>
                                     </a>` : ''}
                             </td>

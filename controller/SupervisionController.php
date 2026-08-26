@@ -1,6 +1,6 @@
 <?php
 // controller/SupervisionController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\SupervisionController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\SupervisionController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -15,14 +15,14 @@ class SupervisionController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -93,7 +93,7 @@ class SupervisionController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         try {
@@ -116,13 +116,13 @@ class SupervisionController extends Controller {
             
             if (!$supervision) {
                 $_SESSION['error'] = 'Supervisión no encontrada';
-                $this->redirect('/produmar/supervision');
+                $this->redirect('/proyecto/supervision');
             }
             
         } catch (Exception $e) {
             error_log("Error en SupervisionController ver: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar la supervisión';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         $this->view('supervision/ver', ['supervision' => $supervision]);
@@ -136,7 +136,7 @@ class SupervisionController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         try {
@@ -153,13 +153,13 @@ class SupervisionController extends Controller {
             
             if (!$supervision) {
                 $_SESSION['error'] = 'Supervisión no encontrada';
-                $this->redirect('/produmar/supervision');
+                $this->redirect('/proyecto/supervision');
             }
             
         } catch (Exception $e) {
             error_log("Error en SupervisionController editar: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar la supervisión';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         $this->view('supervision/editar', ['supervision' => $supervision]);
@@ -175,7 +175,7 @@ class SupervisionController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         $calificacion = $this->post('calificacion', 0);
@@ -206,7 +206,7 @@ class SupervisionController extends Controller {
             $_SESSION['error'] = 'Error al actualizar la supervisión';
         }
         
-        $this->redirect('/produmar/supervision/ver/' . $id);
+        $this->redirect('/proyecto/supervision/ver/' . $id);
     }
 
     /**
@@ -219,7 +219,7 @@ class SupervisionController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         $observaciones = $this->post('observaciones_aprobacion', 'Aprobada por supervisor');
@@ -246,7 +246,7 @@ class SupervisionController extends Controller {
             $_SESSION['error'] = 'Error al aprobar la orden';
         }
         
-        $this->redirect('/produmar/supervision');
+        $this->redirect('/proyecto/supervision');
     }
 
     /**
@@ -259,7 +259,7 @@ class SupervisionController extends Controller {
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/produmar/supervision');
+            $this->redirect('/proyecto/supervision');
         }
         
         $motivo = $this->post('motivo_rechazo', 'Rechazada por supervisor');
@@ -286,7 +286,7 @@ class SupervisionController extends Controller {
             $_SESSION['error'] = 'Error al rechazar la orden';
         }
         
-        $this->redirect('/produmar/supervision');
+        $this->redirect('/proyecto/supervision');
     }
 
     /**

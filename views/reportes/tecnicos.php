@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'admin') {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -112,7 +112,7 @@ include_once __DIR__ . '/../layouts/header.php';
     let tecnicosChart, eficienciaChart;
 
     function cargarTecnicosList() {
-        fetch('/produmar/reportes/tecnicosList')
+        fetch('/proyecto/reportes/tecnicosList')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('tecnico_id');
@@ -129,7 +129,7 @@ include_once __DIR__ . '/../layouts/header.php';
         const formData = new FormData(document.getElementById('filtrosForm'));
         const params = new URLSearchParams(formData);
 
-        fetch(`/produmar/reportes/tecnicosData?${params.toString()}`)
+        fetch(`/proyecto/reportes/tecnicosData?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 const tbody = document.getElementById('reporteBody');
@@ -261,12 +261,12 @@ include_once __DIR__ . '/../layouts/header.php';
 
     function exportarExcel() {
         const params = new URLSearchParams(new FormData(document.getElementById('filtrosForm')));
-        window.location.href = `/produmar/reportes/tecnicosExcel?${params.toString()}`;
+        window.location.href = `/proyecto/reportes/tecnicosExcel?${params.toString()}`;
     }
 
     function exportarPDF() {
         const params = new URLSearchParams(new FormData(document.getElementById('filtrosForm')));
-        window.location.href = `/produmar/reportes/tecnicosPDF?${params.toString()}`;
+        window.location.href = `/proyecto/reportes/tecnicosPDF?${params.toString()}`;
     }
 
     document.getElementById('filtrosForm').addEventListener('submit', function(e) {

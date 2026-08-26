@@ -1,6 +1,6 @@
 <?php
 // controller/AdminController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\AdminController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\AdminController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -14,14 +14,14 @@ class AdminController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar rol de administrador
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -144,7 +144,8 @@ class AdminController extends Controller {
             'tecnicos' => $tecnicos,
             'totalPages' => $totalPages,
             'page' => $page,
-            'total' => $total ?? 0
+            'total' => $total ?? 0,
+            'rol' => $this->authHelper->getRole()  // ✅ AGREGADO
         ]);
     }
 
@@ -250,7 +251,8 @@ class AdminController extends Controller {
         
         if (empty($ordenId) || empty($nuevoEstado)) {
             $_SESSION['error'] = 'Datos incompletos';
-            $this->redirect('/produmar/admin/gestion_ordenes');
+            $this->redirect('/proyecto/admin/gestion_ordenes');
+            return;
         }
         
         try {
@@ -267,7 +269,7 @@ class AdminController extends Controller {
             $_SESSION['error'] = 'Error al actualizar el estado';
         }
         
-        $this->redirect('/produmar/admin/gestion_ordenes');
+        $this->redirect('/proyecto/admin/gestion_ordenes');
     }
 
     /**
@@ -281,7 +283,8 @@ class AdminController extends Controller {
         
         if (empty($ordenId)) {
             $_SESSION['error'] = 'ID de orden no válido';
-            $this->redirect('/produmar/admin/gestion_ordenes');
+            $this->redirect('/proyecto/admin/gestion_ordenes');
+            return;
         }
         
         try {
@@ -298,6 +301,6 @@ class AdminController extends Controller {
             $_SESSION['error'] = 'Error al eliminar la orden';
         }
         
-        $this->redirect('/produmar/admin/gestion_ordenes');
+        $this->redirect('/proyecto/admin/gestion_ordenes');
     }
 }

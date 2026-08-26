@@ -1,7 +1,14 @@
 <?php
-session_start();
+// views/inventario/index.php
+// Ubicación: C:\xampp\htdocs\proyecto\views\inventario\index.php
+
+// ✅ Verificar si la sesión ya está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['usuario_id'])) {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -18,7 +25,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Inventario General</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
-                    <a href="/produmar/inventario/crear" class="btn btn-primary">
+                    <a href="/proyecto/inventario/crear" class="btn btn-primary">
                         <i class="bi bi-plus-circle"></i> Agregar
                     </a>
                 </div>
@@ -119,7 +126,7 @@ include_once __DIR__ . '/../layouts/header.php';
         params.append('page', page);
         params.append('limit', porPagina);
 
-        fetch(`/produmar/inventario/list?${params.toString()}`)
+        fetch(`/proyecto/inventario/list?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 const tbody = document.getElementById('inventarioBody');
@@ -135,7 +142,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <td>${((page - 1) * porPagina) + index + 1}</td>
                             <td>
                                 ${item.imagen ? 
-                                    `<img src="/produmar/uploads/inventario/${item.imagen}" 
+                                    `<img src="/proyecto/uploads/inventario/${item.imagen}" 
                                          alt="${item.nombre}" style="height: 40px; width: 40px; object-fit: cover;" class="rounded">` : 
                                     `<div class="bg-secondary rounded" style="height: 40px; width: 40px;"></div>`
                                 }
@@ -152,7 +159,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 </span>
                             </td>
                             <td>
-                                <a href="/produmar/inventario/editar/${item.id}" class="btn btn-sm btn-warning">
+                                <a href="/proyecto/inventario/editar/${item.id}" class="btn btn-sm btn-warning">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <button class="btn btn-sm btn-danger" onclick="eliminarItem(${item.id})">
@@ -203,7 +210,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
     function eliminarItem(id) {
         if (confirm('¿Estás seguro de eliminar este elemento del inventario?')) {
-            fetch(`/produmar/inventario/eliminar/${id}`, {
+            fetch(`/proyecto/inventario/eliminar/${id}`, {
                 method: 'DELETE'
             })
             .then(response => response.json())

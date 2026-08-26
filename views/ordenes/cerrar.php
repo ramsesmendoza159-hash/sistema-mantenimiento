@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id'])) {
-    header('Location: /produmar/auth/login');
+    header('Location: /proyecto/auth/login');
     exit();
 }
 
@@ -12,7 +12,7 @@ include_once __DIR__ . '/../layouts/header.php';
 // El controlador debe pasar la variable $orden
 $orden = $orden ?? null;
 if (!$orden) {
-    header('Location: /produmar/ordenes');
+    header('Location: /proyecto/ordenes');
     exit();
 }
 ?>
@@ -24,7 +24,7 @@ if (!$orden) {
         <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Cerrar Orden #<?php echo $orden['id']; ?></h1>
-                <a href="/produmar/ordenes/ver/<?php echo $orden['id']; ?>" class="btn btn-secondary">
+                <a href="/proyecto/ordenes/ver/<?php echo $orden['id']; ?>" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
             </div>
@@ -36,7 +36,7 @@ if (!$orden) {
                             <h5 class="mb-0">Completar Orden de Trabajo</h5>
                         </div>
                         <div class="card-body">
-                            <form action="/produmar/ordenes/cerrar/<?php echo $orden['id']; ?>" method="POST" enctype="multipart/form-data">
+                            <form action="/proyecto/ordenes/cerrar/<?php echo $orden['id']; ?>" method="POST" enctype="multipart/form-data">
                                 <div class="mb-3">
                                     <label for="descripcion_cierre" class="form-label">Descripción del trabajo realizado *</label>
                                     <textarea class="form-control" id="descripcion_cierre" name="descripcion_cierre" 
@@ -77,7 +77,7 @@ if (!$orden) {
 
                                 <hr>
                                 <div class="d-flex justify-content-end">
-                                    <a href="/produmar/ordenes/ver/<?php echo $orden['id']; ?>" class="btn btn-secondary me-2">
+                                    <a href="/proyecto/ordenes/ver/<?php echo $orden['id']; ?>" class="btn btn-secondary me-2">
                                         Cancelar
                                     </a>
                                     <button type="submit" class="btn btn-success">
@@ -98,8 +98,8 @@ if (!$orden) {
                             <p><strong>Título:</strong> <?php echo htmlspecialchars($orden['titulo']); ?></p>
                             <p><strong>Área:</strong> <?php echo $orden['area'] ?? 'N/A'; ?></p>
                             <p><strong>Prioridad:</strong> 
-                                <span class="badge bg-<?php echo $orden['prioridad'] === 'urgente' ? 'danger' : 
-                                                         ($orden['prioridad'] === 'alta' ? 'warning' : 'info'); ?>">
+                                <span class="badge bg-<?php echo $orden['prioridad'] === 'Urgente' ? 'danger' : 
+                                                         ($orden['prioridad'] === 'Alta' ? 'warning' : 'info'); ?>">
                                     <?php echo $orden['prioridad']; ?>
                                 </span>
                             </p>

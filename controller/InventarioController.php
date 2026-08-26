@@ -1,6 +1,6 @@
 <?php
 // controller/InventarioController.php
-// Ubicación: C:\xampp\htdocs\produmar\controller\InventarioController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\InventarioController.php
 
 // Incluir el controlador base
 require_once __DIR__ . '/../helpers/Controller.php';
@@ -15,14 +15,14 @@ class InventarioController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar permisos (admin o supervisor)
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -67,6 +67,54 @@ class InventarioController extends Controller {
     }
 
     /**
+     * LISTAR INVENTARIO PARA AJAX (JSON) - ✅ NUEVO MÉTODO
+     * URL: /inventario/list
+     */
+    public function list() {
+        try {
+            // Obtener filtros
+            $filtros = [];
+            if (isset($_GET['search']) && !empty($_GET['search'])) {
+                $filtros['buscar'] = $_GET['search'];
+            }
+            if (isset($_GET['categoria']) && !empty($_GET['categoria'])) {
+                $filtros['categoria'] = $_GET['categoria'];
+            }
+            if (isset($_GET['tipo']) && !empty($_GET['tipo'])) {
+                $filtros['tipo'] = $_GET['tipo'];
+            }
+            if (isset($_GET['stock']) && !empty($_GET['stock'])) {
+                $filtros['stock'] = $_GET['stock'];
+            }
+            
+            // Obtener datos
+            $items = $this->repuestosModel->obtenerTodos($filtros);
+            $total = count($items);
+            $paginas = ceil($total / 15);
+            
+            // Devolver JSON
+            header('Content-Type: application/json');
+            echo json_encode([
+                'items' => $items,
+                'total' => $total,
+                'paginas' => $paginas
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+            
+        } catch (Exception $e) {
+            error_log("Error en list inventario: " . $e->getMessage());
+            header('Content-Type: application/json');
+            echo json_encode([
+                'items' => [],
+                'total' => 0,
+                'paginas' => 0,
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
      * Crear repuesto
      * URL: /inventario/crear
      */
@@ -74,7 +122,7 @@ class InventarioController extends Controller {
         // Solo admin puede crear
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para crear repuestos';
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -107,14 +155,14 @@ class InventarioController extends Controller {
                 
                 if ($id) {
                     $_SESSION['success'] = "Repuesto '" . $datos['nombre'] . "' creado exitosamente";
-                    $this->redirect('/produmar/inventario');
+                    $this->redirect('/proyecto/inventario');
                 } else {
                     throw new Exception("Error al crear el repuesto");
                 }
                 
             } catch (Exception $e) {
                 $_SESSION['error'] = "Error: " . $e->getMessage();
-                $this->redirect('/produmar/inventario/crear');
+                $this->redirect('/proyecto/inventario/crear');
             }
         }
         
@@ -129,20 +177,20 @@ class InventarioController extends Controller {
         // Solo admin puede editar
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para editar repuestos';
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
 
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = "ID de repuesto inválido";
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
         
         $repuesto = $this->repuestosModel->obtenerPorId($id);
         
         if (!$repuesto) {
             $_SESSION['error'] = "Repuesto no encontrado";
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
         
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -174,14 +222,14 @@ class InventarioController extends Controller {
                 
                 if ($this->repuestosModel->actualizar($id, $datos)) {
                     $_SESSION['success'] = "Repuesto actualizado exitosamente";
-                    $this->redirect('/produmar/inventario');
+                    $this->redirect('/proyecto/inventario');
                 } else {
                     throw new Exception("Error al actualizar el repuesto");
                 }
                 
             } catch (Exception $e) {
                 $_SESSION['error'] = "Error: " . $e->getMessage();
-                $this->redirect('/produmar/inventario/editar/' . $id);
+                $this->redirect('/proyecto/inventario/editar/' . $id);
             }
         }
         
@@ -196,13 +244,13 @@ class InventarioController extends Controller {
         // Solo admin puede eliminar
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para eliminar repuestos';
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
 
         $id = (int)$id;
         if ($id <= 0) {
             $_SESSION['error'] = "ID de repuesto inválido";
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
         
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -216,11 +264,11 @@ class InventarioController extends Controller {
                 $_SESSION['error'] = "Error: " . $e->getMessage();
             }
             
-            $this->redirect('/produmar/inventario');
+            $this->redirect('/proyecto/inventario');
         }
         
         // Si no es POST, redirigir
-        $this->redirect('/produmar/inventario');
+        $this->redirect('/proyecto/inventario');
     }
 
     /**

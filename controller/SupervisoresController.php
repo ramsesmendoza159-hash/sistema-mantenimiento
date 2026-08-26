@@ -1,5 +1,6 @@
 <?php
 // controller/SupervisoresController.php
+// Ubicación: C:\xampp\htdocs\proyecto\controller\SupervisoresController.php
 
 require_once __DIR__ . '/../helpers/Controller.php';
 
@@ -12,13 +13,13 @@ class SupervisoresController extends Controller {
         
         // Verificar autenticación y rol admin
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /produmar/auth/login');
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
         if (!$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /produmar/dashboard');
+            header('Location: /proyecto/dashboard');
             exit;
         }
         
@@ -32,8 +33,16 @@ class SupervisoresController extends Controller {
     public function index() {
         try {
             require_once __DIR__ . '/../model/SupervisoresModel.php';
-            $model = new SupervisoresModel();
-            $supervisores = $model->obtenerTodos();
+            $model = new SupervisoresModel();  // 👈 AHORA USA SupervisoresModel
+            
+            // Obtener filtros de la URL
+            $filtros = [
+                'buscar' => $_GET['buscar'] ?? '',
+                'estado' => $_GET['estado'] ?? '',
+                'area' => $_GET['area'] ?? ''
+            ];
+            
+            $supervisores = $model->obtenerTodos($filtros);
             $estadisticas = $model->obtenerEstadisticas();
             
         } catch (Exception $e) {
@@ -45,7 +54,8 @@ class SupervisoresController extends Controller {
         
         $this->view('supervisores/index', [
             'supervisores' => $supervisores,
-            'estadisticas' => $estadisticas
+            'estadisticas' => $estadisticas,
+            'filtros' => $filtros ?? []
         ]);
     }
 
@@ -75,17 +85,20 @@ class SupervisoresController extends Controller {
         
         if (empty($nombre) || empty($email) || empty($password)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben ser llenados';
-            $this->redirect('/produmar/supervisores/crear');
+            $this->redirect('/proyecto/supervisores/crear');
+            return;
         }
         
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/produmar/supervisores/crear');
+            $this->redirect('/proyecto/supervisores/crear');
+            return;
         }
         
         if (strlen($password) < 6) {
             $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-            $this->redirect('/produmar/supervisores/crear');
+            $this->redirect('/proyecto/supervisores/crear');
+            return;
         }
         
         try {
@@ -93,10 +106,10 @@ class SupervisoresController extends Controller {
             $model = new SupervisoresModel();
             
             // Verificar si el email ya existe
-            $existente = $model->obtenerPorEmail($email);
-            if ($existente) {
+            if ($model->emailExiste($email)) {
                 $_SESSION['error'] = 'El email ya está registrado';
-                $this->redirect('/produmar/supervisores/crear');
+                $this->redirect('/proyecto/supervisores/crear');
+                return;
             }
             
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
@@ -113,16 +126,16 @@ class SupervisoresController extends Controller {
             
             if ($resultado) {
                 $_SESSION['success'] = 'Supervisor creado correctamente';
-                $this->redirect('/produmar/supervisores');
+                $this->redirect('/proyecto/supervisores');
             } else {
                 $_SESSION['error'] = 'Error al crear el supervisor';
-                $this->redirect('/produmar/supervisores/crear');
+                $this->redirect('/proyecto/supervisores/crear');
             }
             
         } catch (Exception $e) {
             error_log("Error en guardar supervisor: " . $e->getMessage());
             $_SESSION['error'] = 'Error al crear el supervisor: ' . $e->getMessage();
-            $this->redirect('/produmar/supervisores/crear');
+            $this->redirect('/proyecto/supervisores/crear');
         }
     }
 
@@ -138,7 +151,8 @@ class SupervisoresController extends Controller {
             
             if (!$supervisor) {
                 $_SESSION['error'] = 'Supervisor no encontrado';
-                $this->redirect('/produmar/supervisores');
+                $this->redirect('/proyecto/supervisores');
+                return;
             }
             
             $this->view('supervisores/form', [
@@ -149,7 +163,7 @@ class SupervisoresController extends Controller {
         } catch (Exception $e) {
             error_log("Error en editar supervisor: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar el supervisor';
-            $this->redirect('/produmar/supervisores');
+            $this->redirect('/proyecto/supervisores');
         }
     }
 
@@ -168,12 +182,14 @@ class SupervisoresController extends Controller {
         
         if (empty($nombre) || empty($email)) {
             $_SESSION['error'] = 'Nombre y email son obligatorios';
-            $this->redirect('/produmar/supervisores/editar/' . $id);
+            $this->redirect('/proyecto/supervisores/editar/' . $id);
+            return;
         }
         
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/produmar/supervisores/editar/' . $id);
+            $this->redirect('/proyecto/supervisores/editar/' . $id);
+            return;
         }
         
         try {
@@ -181,10 +197,10 @@ class SupervisoresController extends Controller {
             $model = new SupervisoresModel();
             
             // Verificar si el email ya existe (excepto el actual)
-            $existente = $model->obtenerPorEmail($email);
-            if ($existente && $existente['id'] != $id) {
+            if ($model->emailExiste($email, $id)) {
                 $_SESSION['error'] = 'El email ya está registrado por otro usuario';
-                $this->redirect('/produmar/supervisores/editar/' . $id);
+                $this->redirect('/proyecto/supervisores/editar/' . $id);
+                return;
             }
             
             $datos = [
@@ -200,7 +216,8 @@ class SupervisoresController extends Controller {
             if (!empty($password)) {
                 if (strlen($password) < 6) {
                     $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-                    $this->redirect('/produmar/supervisores/editar/' . $id);
+                    $this->redirect('/proyecto/supervisores/editar/' . $id);
+                    return;
                 }
                 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
                 $model->actualizarPassword($id, $passwordHash);
@@ -217,7 +234,7 @@ class SupervisoresController extends Controller {
             $_SESSION['error'] = 'Error al actualizar el supervisor: ' . $e->getMessage();
         }
         
-        $this->redirect('/produmar/supervisores');
+        $this->redirect('/proyecto/supervisores');
     }
 
     /**
@@ -243,6 +260,77 @@ class SupervisoresController extends Controller {
             $_SESSION['error'] = 'Error al eliminar el supervisor';
         }
         
-        $this->redirect('/produmar/supervisores');
+        $this->redirect('/proyecto/supervisores');
+    }
+    
+    /**
+     * Cambiar estado de un supervisor
+     * URL: /supervisores/cambiarEstado/{id} (POST)
+     */
+    public function cambiarEstado($id) {
+        $this->requirePost();
+        
+        $estado = $this->post('estado', 'activo');
+        
+        try {
+            require_once __DIR__ . '/../model/SupervisoresModel.php';
+            $model = new SupervisoresModel();
+            $resultado = $model->cambiarEstado($id, $estado);
+            
+            if ($resultado) {
+                $_SESSION['success'] = 'Estado actualizado correctamente';
+            } else {
+                $_SESSION['error'] = 'Error al cambiar el estado';
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error en cambiarEstado supervisor: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cambiar el estado';
+        }
+        
+        $this->redirect('/proyecto/supervisores');
+    }
+    
+    /**
+     * Cambiar contraseña de un supervisor
+     * URL: /supervisores/cambiarPassword/{id} (POST)
+     */
+    public function cambiarPassword($id) {
+        $this->requirePost();
+        
+        $password = $this->post('password', '');
+        $confirmar = $this->post('confirmar_password', '');
+        
+        if ($password !== $confirmar) {
+            $_SESSION['error'] = 'Las contraseñas no coinciden';
+            $this->redirect('/proyecto/supervisores');
+            return;
+        }
+        
+        if (strlen($password) < 6) {
+            $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
+            $this->redirect('/proyecto/supervisores');
+            return;
+        }
+        
+        try {
+            require_once __DIR__ . '/../model/SupervisoresModel.php';
+            $model = new SupervisoresModel();
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $resultado = $model->actualizarPassword($id, $passwordHash);
+            
+            if ($resultado) {
+                $_SESSION['success'] = 'Contraseña actualizada correctamente';
+            } else {
+                $_SESSION['error'] = 'Error al cambiar la contraseña';
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error en cambiarPassword supervisor: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cambiar la contraseña';
+        }
+        
+        $this->redirect('/proyecto/supervisores');
     }
 }
+?>
