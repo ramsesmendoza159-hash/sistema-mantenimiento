@@ -1,284 +1,285 @@
 <?php
 // controller/TecnicosController.php
-// Ubicación: C:\xampp\htdocs\proyecto\controller\TecnicosController.php
+// Gestión de técnicos - CORREGIDO
 
-// Incluir el controlador base
-require_once __DIR__ . '/../helpers/Controller.php';
+require_once __DIR__ . '/../model/Tecnico.php';
+require_once __DIR__ . '/../helpers/ValidationHelper.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-class TecnicosController extends Controller {
+class TecnicosController {
     
-    private $db;
-
+    private Tecnico $model;
+    
     public function __construct() {
-        parent::__construct();
-        
-        // Verificar autenticación
-        if (!$this->authHelper->isLoggedIn()) {
+        // Verificar autenticación y rol admin
+        if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
             header('Location: /proyecto/auth/login');
             exit;
         }
-        
-        // Verificar rol de administrador
-        if (!$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit;
-        }
-        
-        // Obtener conexión a la base de datos
-        $this->db = Database::getInstance()->getConnection();
+        $this->model = new Tecnico();
     }
-
+    
     /**
      * Lista de técnicos
      * URL: /tecnicos
      */
     public function index() {
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $tecnicos = $model->obtenerTodos();
-            $estadisticas = $model->obtenerEstadisticas();
-            
-        } catch (Exception $e) {
-            error_log("Error en TecnicosController index: " . $e->getMessage());
-            $tecnicos = [];
-            $estadisticas = ['total' => 0, 'activos' => 0, 'inactivos' => 0];
-            $_SESSION['error'] = 'Error al cargar los técnicos: ' . $e->getMessage();
-        }
+        $filtros = [
+            'estado' => $_GET['estado'] ?? '',
+            'buscar' => $_GET['buscar'] ?? '',
+            'especialidad' => $_GET['especialidad'] ?? ''
+        ];
         
-        $this->view('tecnicos/index', [
-            'tecnicos' => $tecnicos,
-            'estadisticas' => $estadisticas
-        ]);
+        $tecnicos = $this->model->obtenerTodos($filtros);
+        $estadisticas = $this->model->obtenerEstadisticas();
+        
+        $seccion = 'tecnicos';
+        $titulo = 'Gestión de Técnicos';
+        require_once __DIR__ . '/../views/tecnicos/index.php';
     }
-
+    
     /**
      * Formulario para crear técnico
      * URL: /tecnicos/crear
      */
     public function crear() {
-        $this->view('tecnicos/crear', [
-            'tecnico' => null,
-            'accion' => 'crear'
-        ]);
+        $seccion = 'tecnicos';
+        $titulo = 'Crear Técnico';
+        require_once __DIR__ . '/../views/tecnicos/form.php';
     }
-
+    
     /**
      * Guardar nuevo técnico
      * URL: /tecnicos/guardar (POST)
      */
     public function guardar() {
-        $this->requirePost();
-        
-        $nombre = $this->post('nombre', '');
-        $email = $this->post('email', '');
-        $telefono = $this->post('telefono', '');
-        $especialidad = $this->post('especialidad', '');
-        $password = $this->post('password', '');
-        $estado = $this->post('estado', 'activo');
-        
-        if (empty($nombre) || empty($email) || empty($password)) {
-            $_SESSION['error'] = 'Nombre, email y contraseña son obligatorios';
-            $this->redirect('/proyecto/tecnicos/crear');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /proyecto/tecnicos');
+            exit;
         }
         
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/proyecto/tecnicos/crear');
+        // Validar CSRF
+        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            $_SESSION['error'] = 'Token de seguridad inválido';
+            header('Location: /proyecto/tecnicos/crear');
+            exit;
         }
         
-        if (strlen($password) < 6) {
-            $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-            $this->redirect('/proyecto/tecnicos/crear');
+        // Validar datos
+        $errores = [];
+        
+        $nombre = ValidationHelper::sanitize($_POST['nombre'] ?? '');
+        if (empty($nombre)) {
+            $errores[] = 'El nombre es obligatorio';
+        } elseif (!ValidationHelper::validateLength($nombre, 3, 100)) {
+            $errores[] = 'El nombre debe tener entre 3 y 100 caracteres';
         }
         
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            
-            // Verificar si el email ya existe
-            $existente = $model->obtenerPorEmail($email);
-            if ($existente) {
-                $_SESSION['error'] = 'El email ya está registrado';
-                $this->redirect('/proyecto/tecnicos/crear');
-            }
-            
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            
-            $datos = [
-                'nombre' => $nombre,
-                'email' => $email,
-                'telefono' => $telefono,
-                'especialidad' => $especialidad,
-                'password_hash' => $passwordHash,
-                'estado' => $estado
-            ];
-            
-            $resultado = $model->crear($datos);
-            
-            if ($resultado) {
-                $_SESSION['success'] = 'Técnico creado correctamente';
-                $this->redirect('/proyecto/tecnicos');
-            } else {
-                $_SESSION['error'] = 'Error al crear el técnico';
-                $this->redirect('/proyecto/tecnicos/crear');
-            }
-            
-        } catch (Exception $e) {
-            error_log("Error en guardar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al crear el técnico: ' . $e->getMessage();
-            $this->redirect('/proyecto/tecnicos/crear');
+        $email = ValidationHelper::sanitize($_POST['email'] ?? '');
+        if (empty($email)) {
+            $errores[] = 'El email es obligatorio';
+        } elseif (!ValidationHelper::validateEmail($email)) {
+            $errores[] = 'El email no es válido';
         }
+        
+        // Verificar si el email ya existe
+        if ($this->model->emailExiste($email)) {
+            $errores[] = 'El email ya está registrado';
+        }
+        
+        $password = $_POST['password'] ?? '';
+        if (empty($password)) {
+            $errores[] = 'La contraseña es obligatoria';
+        } elseif (strlen($password) < 6) {
+            $errores[] = 'La contraseña debe tener al menos 6 caracteres';
+        }
+        
+        if (!empty($errores)) {
+            $_SESSION['errores'] = $errores;
+            header('Location: /proyecto/tecnicos/crear');
+            exit;
+        }
+        
+        // Crear técnico
+        $datos = [
+            'nombre' => $nombre,
+            'email' => $email,
+            'password' => $password,
+            'especialidad' => ValidationHelper::sanitize($_POST['especialidad'] ?? ''),
+            'tarifa' => (float)($_POST['tarifa'] ?? 0),
+            'telefono' => ValidationHelper::sanitize($_POST['telefono'] ?? ''),
+            'estado' => $_POST['estado'] ?? 'activo'
+        ];
+        
+        $result = $this->model->crear($datos);
+        
+        if ($result) {
+            $_SESSION['mensaje'] = 'Técnico creado correctamente';
+            $_SESSION['mensaje_tipo'] = 'success';
+            header('Location: /proyecto/tecnicos');
+        } else {
+            $_SESSION['error'] = 'Error al crear el técnico';
+            header('Location: /proyecto/tecnicos/crear');
+        }
+        exit;
     }
-
+    
     /**
      * Formulario para editar técnico
      * URL: /tecnicos/editar/{id}
      */
     public function editar($id) {
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $tecnico = $model->obtenerPorId($id);
-            
-            if (!$tecnico) {
-                $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/proyecto/tecnicos');
-            }
-            
-            $this->view('tecnicos/editar', [
-                'tecnico' => $tecnico,
-                'accion' => 'editar'
-            ]);
-            
-        } catch (Exception $e) {
-            error_log("Error en editar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el técnico';
-            $this->redirect('/proyecto/tecnicos');
+        $tecnico = $this->model->obtenerPorId($id);
+        
+        if (!$tecnico) {
+            $_SESSION['error'] = 'Técnico no encontrado';
+            header('Location: /proyecto/tecnicos');
+            exit;
         }
+        
+        $seccion = 'tecnicos';
+        $titulo = 'Editar Técnico';
+        require_once __DIR__ . '/../views/tecnicos/form.php';
     }
-
+    
     /**
      * Actualizar técnico
      * URL: /tecnicos/actualizar/{id} (POST)
      */
     public function actualizar($id) {
-        $this->requirePost();
-        
-        $nombre = $this->post('nombre', '');
-        $email = $this->post('email', '');
-        $telefono = $this->post('telefono', '');
-        $especialidad = $this->post('especialidad', '');
-        $password = $this->post('password', '');
-        $estado = $this->post('estado', 'activo');
-        
-        if (empty($nombre) || empty($email)) {
-            $_SESSION['error'] = 'Nombre y email son obligatorios';
-            $this->redirect('/proyecto/tecnicos/editar/' . $id);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /proyecto/tecnicos');
+            exit;
         }
         
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $_SESSION['error'] = 'El email no es válido';
-            $this->redirect('/proyecto/tecnicos/editar/' . $id);
+        // Validar CSRF
+        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            $_SESSION['error'] = 'Token de seguridad inválido';
+            header('Location: /proyecto/tecnicos/editar/' . $id);
+            exit;
         }
         
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            
-            // Verificar si el email ya existe (excepto el actual)
-            $existente = $model->obtenerPorEmail($email);
-            if ($existente && $existente['id'] != $id) {
-                $_SESSION['error'] = 'El email ya está registrado por otro usuario';
-                $this->redirect('/proyecto/tecnicos/editar/' . $id);
-            }
-            
-            $datos = [
-                'nombre' => $nombre,
-                'email' => $email,
-                'telefono' => $telefono,
-                'especialidad' => $especialidad,
-                'estado' => $estado
-            ];
-            
-            $resultado = $model->actualizar($id, $datos);
-            
-            // Si se proporcionó nueva contraseña, actualizarla
-            if (!empty($password)) {
-                if (strlen($password) < 6) {
-                    $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-                    $this->redirect('/proyecto/tecnicos/editar/' . $id);
-                }
-                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-                $model->actualizarPassword($id, $passwordHash);
-            }
-            
-            if ($resultado) {
-                $_SESSION['success'] = 'Técnico actualizado correctamente';
-            } else {
-                $_SESSION['error'] = 'Error al actualizar el técnico';
-            }
-            
-        } catch (Exception $e) {
-            error_log("Error en actualizar tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al actualizar el técnico: ' . $e->getMessage();
+        // Validar datos
+        $errores = [];
+        
+        $nombre = ValidationHelper::sanitize($_POST['nombre'] ?? '');
+        if (empty($nombre)) {
+            $errores[] = 'El nombre es obligatorio';
+        } elseif (!ValidationHelper::validateLength($nombre, 3, 100)) {
+            $errores[] = 'El nombre debe tener entre 3 y 100 caracteres';
         }
         
-        $this->redirect('/proyecto/tecnicos');
+        $email = ValidationHelper::sanitize($_POST['email'] ?? '');
+        if (empty($email)) {
+            $errores[] = 'El email es obligatorio';
+        } elseif (!ValidationHelper::validateEmail($email)) {
+            $errores[] = 'El email no es válido';
+        }
+        
+        // Verificar si el email ya existe (excepto el actual)
+        if ($this->model->emailExiste($email, $id)) {
+            $errores[] = 'El email ya está registrado por otro usuario';
+        }
+        
+        if (!empty($errores)) {
+            $_SESSION['errores'] = $errores;
+            header('Location: /proyecto/tecnicos/editar/' . $id);
+            exit;
+        }
+        
+        // Actualizar técnico
+        $datos = [
+            'nombre' => $nombre,
+            'email' => $email,
+            'especialidad' => ValidationHelper::sanitize($_POST['especialidad'] ?? ''),
+            'tarifa' => (float)($_POST['tarifa'] ?? 0),
+            'telefono' => ValidationHelper::sanitize($_POST['telefono'] ?? ''),
+            'estado' => $_POST['estado'] ?? 'activo'
+        ];
+        
+        // Si se proporcionó nueva contraseña
+        $password = $_POST['password'] ?? '';
+        if (!empty($password)) {
+            if (strlen($password) < 6) {
+                $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
+                header('Location: /proyecto/tecnicos/editar/' . $id);
+                exit;
+            }
+            $datos['password'] = $password;
+        }
+        
+        $result = $this->model->actualizar($id, $datos);
+        
+        if ($result) {
+            $_SESSION['mensaje'] = 'Técnico actualizado correctamente';
+            $_SESSION['mensaje_tipo'] = 'success';
+        } else {
+            $_SESSION['error'] = 'Error al actualizar el técnico';
+        }
+        
+        header('Location: /proyecto/tecnicos');
+        exit;
     }
-
+    
     /**
      * Eliminar técnico
      * URL: /tecnicos/eliminar/{id} (POST)
      */
     public function eliminar($id) {
-        $this->requirePost();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /proyecto/tecnicos');
+            exit;
+        }
         
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $resultado = $model->eliminar($id);
-            
-            if ($resultado) {
-                $_SESSION['success'] = 'Técnico eliminado correctamente';
-            } else {
-                $_SESSION['error'] = 'Error al eliminar el técnico';
-            }
-            
-        } catch (Exception $e) {
-            error_log("Error en eliminar tecnico: " . $e->getMessage());
+        // Validar CSRF
+        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            $_SESSION['error'] = 'Token de seguridad inválido';
+            header('Location: /proyecto/tecnicos');
+            exit;
+        }
+        
+        $result = $this->model->eliminar($id);
+        
+        if ($result) {
+            $_SESSION['mensaje'] = 'Técnico eliminado correctamente';
+            $_SESSION['mensaje_tipo'] = 'success';
+        } else {
             $_SESSION['error'] = 'Error al eliminar el técnico';
         }
         
-        $this->redirect('/proyecto/tecnicos');
+        header('Location: /proyecto/tecnicos');
+        exit;
     }
-
+    
     /**
      * Cambiar estado del técnico
-     * URL: /tecnicos/cambiar_estado/{id} (POST)
+     * URL: /tecnicos/cambiarEstado/{id} (POST)
      */
-    public function cambiar_estado($id) {
-        $this->requirePost();
-        
-        $estado = $this->post('estado', 'activo');
-        
-        try {
-            require_once __DIR__ . '/../model/TecnicosModel.php';
-            $model = new TecnicosModel();
-            $resultado = $model->cambiarEstado($id, $estado);
-            
-            if ($resultado) {
-                $_SESSION['success'] = 'Estado del técnico actualizado correctamente';
-            } else {
-                $_SESSION['error'] = 'Error al cambiar el estado del técnico';
-            }
-            
-        } catch (Exception $e) {
-            error_log("Error en cambiar_estado tecnico: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cambiar el estado del técnico';
+    public function cambiarEstado($id) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /proyecto/tecnicos');
+            exit;
         }
         
-        $this->redirect('/proyecto/tecnicos');
+        // Validar CSRF
+        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+            $_SESSION['error'] = 'Token de seguridad inválido';
+            header('Location: /proyecto/tecnicos');
+            exit;
+        }
+        
+        $estado = $_POST['estado'] ?? 'activo';
+        $result = $this->model->cambiarEstado($id, $estado);
+        
+        if ($result) {
+            $_SESSION['mensaje'] = 'Estado actualizado correctamente';
+            $_SESSION['mensaje_tipo'] = 'success';
+        } else {
+            $_SESSION['error'] = 'Error al cambiar el estado';
+        }
+        
+        header('Location: /proyecto/tecnicos');
+        exit;
     }
 }
+?>

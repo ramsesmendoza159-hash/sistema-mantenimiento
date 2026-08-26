@@ -1,27 +1,29 @@
 <?php
-// model/UsuariosModel.php
-// Ubicación: C:\xampp\htdocs\proyecto\model\UsuariosModel.php
+// model/Usuario.php
+// Modelo de usuarios - CORREGIDO
 
-// Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/HashHelper.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-class UsuariosModel {
+class Usuario {
     private $db;
-
+    
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
     }
-
+    
     /**
-     * Autenticar usuario por email y password
-     * Este es el método principal para el login
+     * Autenticar usuario - MÉTODO CORREGIDO
      */
     public function autenticar($email, $password) {
         try {
             // Buscar usuario por email
-            $sql = "SELECT * FROM usuarios WHERE email = ? AND estado = 'activo'";
+            $sql = "SELECT id, nombre, email, password_hash, rol, estado 
+                    FROM usuarios 
+                    WHERE email = ? AND estado = 'activo'";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$email]);
+            $stmt->execute([SecurityHelper::sanitizeForDB($email)]);
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$usuario) {
@@ -29,21 +31,19 @@ class UsuariosModel {
                 return false;
             }
             
-            // Verificar contraseña usando password_verify nativo
-            if (password_verify($password, $usuario['password_hash'])) {
-                // Si el hash necesita ser rehasheado (actualizar a bcrypt más fuerte)
-                if (password_needs_rehash($usuario['password_hash'], PASSWORD_BCRYPT, ['cost' => 12])) {
-                    $nuevoHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-                    $this->actualizarPassword($usuario['id'], $nuevoHash);
+            // Verificar contraseña usando HashHelper
+            if (HashHelper::verify($password, $usuario['password_hash'])) {
+                // Si el hash necesita ser rehasheado
+                if (HashHelper::needsRehash($usuario['password_hash'])) {
+                    $this->actualizarHash($usuario['id'], $password);
                 }
                 return $usuario;
             }
             
-            // COMPATIBILIDAD: Si falla con bcrypt, probar con MD5 (versiones anteriores)
+            // COMPATIBILIDAD: MD5 (versiones anteriores)
             if (md5($password) === $usuario['password_hash']) {
-                // Migrar a bcrypt
-                $nuevoHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-                $this->actualizarPassword($usuario['id'], $nuevoHash);
+                $nuevoHash = HashHelper::encrypt($password);
+                $this->actualizarHash($usuario['id'], $password);
                 error_log("Usuario migrado de MD5 a bcrypt: $email");
                 return $usuario;
             }
@@ -56,7 +56,22 @@ class UsuariosModel {
             return false;
         }
     }
-
+    
+    /**
+     * Actualizar hash de usuario
+     */
+    public function actualizarHash($usuario_id, $password) {
+        try {
+            $nuevoHash = HashHelper::encrypt($password);
+            $sql = "UPDATE usuarios SET password_hash = ?, updated_at = NOW() WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$nuevoHash, (int)$usuario_id]);
+        } catch (PDOException $e) {
+            error_log("Error en actualizarHash: " . $e->getMessage());
+            return false;
+        }
+    }
+    
     /**
      * Obtener usuario por email
      */
@@ -64,14 +79,14 @@ class UsuariosModel {
         try {
             $sql = "SELECT * FROM usuarios WHERE email = ? AND estado = 'activo'";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$email]);
+            $stmt->execute([SecurityHelper::sanitizeForDB($email)]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en obtenerPorEmail: " . $e->getMessage());
             return false;
         }
     }
-
+    
     /**
      * Obtener usuario por ID
      */
@@ -79,14 +94,14 @@ class UsuariosModel {
         try {
             $sql = "SELECT * FROM usuarios WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
+            $stmt->execute([(int)$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en obtenerPorId: " . $e->getMessage());
             return false;
         }
     }
-
+    
     /**
      * Obtener todos los usuarios
      */
@@ -94,24 +109,24 @@ class UsuariosModel {
         try {
             $sql = "SELECT * FROM usuarios WHERE 1=1";
             $params = [];
-
+            
             if (!empty($filtros['estado'])) {
                 $sql .= " AND estado = ?";
-                $params[] = $filtros['estado'];
+                $params[] = SecurityHelper::sanitizeForDB($filtros['estado']);
             }
-
+            
             if (!empty($filtros['rol'])) {
                 $sql .= " AND rol = ?";
-                $params[] = $filtros['rol'];
+                $params[] = SecurityHelper::sanitizeForDB($filtros['rol']);
             }
-
+            
             if (!empty($filtros['buscar'])) {
                 $sql .= " AND (nombre LIKE ? OR email LIKE ?)";
-                $buscar = '%' . $filtros['buscar'] . '%';
+                $buscar = '%' . SecurityHelper::sanitizeForDB($filtros['buscar']) . '%';
                 $params[] = $buscar;
                 $params[] = $buscar;
             }
-
+            
             $sql .= " ORDER BY nombre ASC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
@@ -121,194 +136,92 @@ class UsuariosModel {
             return [];
         }
     }
-
+    
     /**
-     * Obtener total de usuarios
-     */
-    public function obtenerTotal() {
-        try {
-            $stmt = $this->db->query("SELECT COUNT(*) as total FROM usuarios");
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $result['total'] ?? 0;
-        } catch (PDOException $e) {
-            error_log("Error en obtenerTotal: " . $e->getMessage());
-            return 0;
-        }
-    }
-
-    /**
-     * Crear nuevo usuario con hash de contraseña seguro
+     * Crear usuario con hash seguro
      */
     public function crear($datos) {
         try {
-            // Generar hash con password_hash nativo
-            $passwordHash = '';
-            if (!empty($datos['password'])) {
-                $passwordHash = password_hash($datos['password'], PASSWORD_BCRYPT, ['cost' => 12]);
-            } elseif (!empty($datos['password_hash'])) {
-                $passwordHash = $datos['password_hash'];
+            // Validar datos
+            $errores = $this->validarDatos($datos, true);
+            if (!empty($errores)) {
+                $_SESSION['errores'] = $errores;
+                return false;
             }
-
+            
+            $hash = HashHelper::encrypt($datos['password']);
+            
             $sql = "INSERT INTO usuarios (nombre, email, password_hash, rol, estado) 
                     VALUES (?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                trim($datos['nombre']),
-                trim($datos['email']),
-                $passwordHash,
-                $datos['rol'] ?? 'usuario',
-                $datos['estado'] ?? 'activo'
+            return $stmt->execute([
+                SecurityHelper::sanitizeForDB($datos['nombre']),
+                SecurityHelper::sanitizeForDB($datos['email']),
+                $hash,
+                SecurityHelper::sanitizeForDB($datos['rol'] ?? 'usuario'),
+                SecurityHelper::sanitizeForDB($datos['estado'] ?? 'activo')
             ]);
-            return $this->db->lastInsertId();
         } catch (PDOException $e) {
             error_log("Error en crear: " . $e->getMessage());
             return false;
         }
     }
-
+    
     /**
-     * Actualizar usuario (sin cambiar contraseña)
+     * Actualizar usuario
      */
     public function actualizar($id, $datos) {
         try {
+            $errores = $this->validarDatos($datos, false);
+            if (!empty($errores)) {
+                $_SESSION['errores'] = $errores;
+                return false;
+            }
+            
             $sql = "UPDATE usuarios SET 
                         nombre = ?,
                         email = ?,
                         rol = ?,
                         estado = ?,
-                        fecha_actualizacion = NOW()
+                        updated_at = NOW()
                     WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                trim($datos['nombre']),
-                trim($datos['email']),
-                $datos['rol'] ?? 'usuario',
-                $datos['estado'] ?? 'activo',
-                $id
+                SecurityHelper::sanitizeForDB($datos['nombre']),
+                SecurityHelper::sanitizeForDB($datos['email']),
+                SecurityHelper::sanitizeForDB($datos['rol'] ?? 'usuario'),
+                SecurityHelper::sanitizeForDB($datos['estado'] ?? 'activo'),
+                (int)$id
             ]);
         } catch (PDOException $e) {
             error_log("Error en actualizar: " . $e->getMessage());
             return false;
         }
     }
-
+    
     /**
-     * Actualizar contraseña con hash seguro usando password_hash
+     * Validar datos
      */
-    public function actualizarPassword($id, $password) {
-        try {
-            // Si es texto plano (menos de 60 chars o no es bcrypt), hashearlo
-            if (strlen($password) < 60 || strpos($password, '$2y$') !== 0) {
-                $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-            } else {
-                $passwordHash = $password;
-            }
-            
-            $sql = "UPDATE usuarios SET password_hash = ?, fecha_actualizacion = NOW() WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$passwordHash, $id]);
-        } catch (PDOException $e) {
-            error_log("Error en actualizarPassword: " . $e->getMessage());
-            return false;
+    private function validarDatos($datos, $esCreacion = true) {
+        $errores = [];
+        
+        if (empty($datos['nombre'])) {
+            $errores[] = 'El nombre es obligatorio';
         }
-    }
-
-    /**
-     * Cambiar estado del usuario
-     */
-    public function cambiarEstado($id, $estado) {
-        try {
-            $sql = "UPDATE usuarios SET estado = ?, fecha_actualizacion = NOW() WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$estado, $id]);
-        } catch (PDOException $e) {
-            error_log("Error en cambiarEstado: " . $e->getMessage());
-            return false;
+        
+        if (empty($datos['email']) || !ValidationHelper::validateEmail($datos['email'])) {
+            $errores[] = 'El email no es válido';
         }
-    }
-
-    /**
-     * Eliminar usuario
-     */
-    public function eliminar($id) {
-        try {
-            $sql = "DELETE FROM usuarios WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$id]);
-        } catch (PDOException $e) {
-            error_log("Error en eliminar: " . $e->getMessage());
-            return false;
+        
+        if ($esCreacion && empty($datos['password'])) {
+            $errores[] = 'La contraseña es obligatoria';
         }
-    }
-
-    /**
-     * Obtener estadísticas de usuarios
-     */
-    public function obtenerEstadisticas() {
-        try {
-            $sql = "SELECT 
-                        COUNT(*) as total,
-                        SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos,
-                        SUM(CASE WHEN estado = 'inactivo' THEN 1 ELSE 0 END) as inactivos,
-                        SUM(CASE WHEN rol = 'admin' THEN 1 ELSE 0 END) as admins,
-                        SUM(CASE WHEN rol = 'supervisor' THEN 1 ELSE 0 END) as supervisores,
-                        SUM(CASE WHEN rol = 'tecnico' THEN 1 ELSE 0 END) as tecnicos
-                    FROM usuarios";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerEstadisticas: " . $e->getMessage());
-            return ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'admins' => 0, 'supervisores' => 0, 'tecnicos' => 0];
+        
+        if ($esCreacion && strlen($datos['password']) < 6) {
+            $errores[] = 'La contraseña debe tener al menos 6 caracteres';
         }
-    }
-
-    /**
-     * Verificar si un email ya está registrado
-     */
-    public function emailExiste($email, $excluirId = null) {
-        try {
-            $sql = "SELECT COUNT(*) as total FROM usuarios WHERE email = ?";
-            $params = [$email];
-            
-            if ($excluirId !== null) {
-                $sql .= " AND id != ?";
-                $params[] = $excluirId;
-            }
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            return ($result['total'] ?? 0) > 0;
-        } catch (PDOException $e) {
-            error_log("Error en emailExiste: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Crear usuario admin si no existe
-     */
-    public function crearAdminSiNoExiste() {
-        try {
-            $sql = "SELECT COUNT(*) as total FROM usuarios WHERE email = 'admin@localhost'";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (($result['total'] ?? 0) == 0) {
-                $hash = password_hash('admin123', PASSWORD_BCRYPT, ['cost' => 12]);
-                $sql = "INSERT INTO usuarios (nombre, email, password_hash, rol, estado) 
-                        VALUES ('Administrador', 'admin@localhost', ?, 'admin', 'activo')";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$hash]);
-                return true;
-            }
-            return false;
-        } catch (PDOException $e) {
-            error_log("Error en crearAdminSiNoExiste: " . $e->getMessage());
-            return false;
-        }
+        
+        return $errores;
     }
 }
 ?>

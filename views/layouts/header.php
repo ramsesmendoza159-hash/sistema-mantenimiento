@@ -1,13 +1,14 @@
 <?php
 // views/layouts/header.php
 // Ubicación: C:\xampp\htdocs\proyecto\views\layouts\header.php
+// NOTA: NO usar session_start() aquí - ya está iniciada en index.php
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $titulo ?? 'PROYECTO - Sistema de Mantenimiento'; ?></title>
+    <title><?php echo htmlspecialchars($titulo ?? 'PROYECTO - Sistema de Mantenimiento'); ?></title>
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -17,6 +18,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
+        /* Estilos del sistema */
         * {
             margin: 0;
             padding: 0;
@@ -107,6 +109,12 @@
             border-radius: 8px;
             padding: 6px 12px;
             font-size: 13px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
+            text-align: center;
         }
         .sidebar .user-info .btn-logout:hover {
             color: white;
