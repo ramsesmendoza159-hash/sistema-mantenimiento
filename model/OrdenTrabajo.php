@@ -4,9 +4,20 @@
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/ValidationHelper.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 class OrdenTrabajo {
     private $db;
+    
+    // Constantes de estado
+    const ESTADO_PENDIENTE = 'PENDIENTE';
+    const ESTADO_EN_PROCESO = 'EN_PROCESO';
+    const ESTADO_EJECUTADA = 'EJECUTADA';
+    const ESTADO_CERRADA = 'CERRADA';
+    const ESTADO_CANCELADA = 'CANCELADA';
+    const ESTADO_APROBADA = 'APROBADA';
+    const ESTADO_RECHAZADA = 'RECHAZADA';
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
@@ -15,7 +26,7 @@ class OrdenTrabajo {
     /**
      * Obtener todas las órdenes con filtros y datos de costos
      */
-    public function obtenerTodos($filtros = []) {
+    public function obtenerTodos($filtros = [], $limit = null, $offset = null) {
         try {
             $sql = "SELECT o.*, 
                            t.nombre as tecnico_nombre,
@@ -35,14 +46,15 @@ class OrdenTrabajo {
                     WHERE 1=1";
             $params = [];
 
+            // Aplicar filtros de forma segura
             if (!empty($filtros['status'])) {
                 $sql .= " AND o.status = ?";
-                $params[] = $filtros['status'];
+                $params[] = SecurityHelper::sanitizeForDB($filtros['status']);
             }
 
             if (!empty($filtros['buscar'])) {
                 $sql .= " AND (o.num_om LIKE ? OR o.titulo LIKE ? OR o.descripcion_mantenimiento LIKE ?)";
-                $buscar = '%' . $filtros['buscar'] . '%';
+                $buscar = '%' . SecurityHelper::sanitizeForDB($filtros['buscar']) . '%';
                 $params[] = $buscar;
                 $params[] = $buscar;
                 $params[] = $buscar;
@@ -50,21 +62,28 @@ class OrdenTrabajo {
 
             if (!empty($filtros['tecnico_id'])) {
                 $sql .= " AND o.tecnico_id = ?";
-                $params[] = $filtros['tecnico_id'];
+                $params[] = (int)$filtros['tecnico_id'];
             }
 
             if (!empty($filtros['prioridad'])) {
                 $sql .= " AND o.prioridad = ?";
-                $params[] = $filtros['prioridad'];
+                $params[] = SecurityHelper::sanitizeForDB($filtros['prioridad']);
             }
 
             if (!empty($filtros['fecha_desde']) && !empty($filtros['fecha_hasta'])) {
                 $sql .= " AND o.fecha_creacion BETWEEN ? AND ?";
-                $params[] = $filtros['fecha_desde'] . ' 00:00:00';
-                $params[] = $filtros['fecha_hasta'] . ' 23:59:59';
+                $params[] = SecurityHelper::sanitizeForDB($filtros['fecha_desde'] . ' 00:00:00');
+                $params[] = SecurityHelper::sanitizeForDB($filtros['fecha_hasta'] . ' 23:59:59');
             }
 
             $sql .= " ORDER BY o.fecha_creacion DESC";
+            
+            // Paginación
+            if ($limit !== null && $offset !== null) {
+                $sql .= " LIMIT ? OFFSET ?";
+                $params[] = (int)$limit;
+                $params[] = (int)$offset;
+            }
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
@@ -76,15 +95,20 @@ class OrdenTrabajo {
     }
 
     /**
-     * Obtener orden por ID - VERSIÓN CORREGIDA CON MANEJO DE ERRORES ROBUSTO
-     * Esta versión maneja todos los casos de datos faltantes y errores de consulta
+     * Obtener orden por ID - VERSIÓN CORREGIDA CON MANEJO DE ERRORES
      */
     public function obtenerPorId($id) {
         try {
-            // ✅ Primero obtener la orden básica
+            // Validar ID
+            if (!is_numeric($id) || (int)$id <= 0) {
+                error_log("obtenerPorId: ID inválido - $id");
+                return false;
+            }
+            
+            // Obtener la orden básica
             $sql = "SELECT * FROM ordenes_mantenimiento WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
+            $stmt->execute([(int)$id]);
             $orden = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$orden) {
@@ -92,138 +116,8 @@ class OrdenTrabajo {
                 return false;
             }
             
-            // ✅ Obtener datos relacionados por separado con manejo de errores
-            
-            // Técnico
-            if (!empty($orden['tecnico_id'])) {
-                try {
-                    $sql = "SELECT nombre, tarifa FROM tecnicos WHERE id = ?";
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([$orden['tecnico_id']]);
-                    $tecnico = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($tecnico) {
-                        $orden['tecnico_nombre'] = $tecnico['nombre'];
-                        $orden['tarifa_tecnico'] = $tecnico['tarifa'] ?? 0;
-                    } else {
-                        // Técnico no encontrado - usar valores por defecto
-                        $orden['tecnico_nombre'] = 'Técnico ID: ' . $orden['tecnico_id'] . ' (no encontrado)';
-                        $orden['tarifa_tecnico'] = 0;
-                        error_log("obtenerPorId: Técnico ID " . $orden['tecnico_id'] . " no encontrado para orden $id");
-                    }
-                } catch (PDOException $e) {
-                    error_log("obtenerPorId: Error al obtener técnico para orden $id: " . $e->getMessage());
-                    $orden['tecnico_nombre'] = 'Error al cargar técnico';
-                    $orden['tarifa_tecnico'] = 0;
-                }
-            } else {
-                $orden['tecnico_nombre'] = 'Sin asignar';
-                $orden['tarifa_tecnico'] = 0;
-            }
-            
-            // Supervisor
-            if (!empty($orden['id_supervisor'])) {
-                try {
-                    $sql = "SELECT nombre FROM supervisores WHERE id = ?";
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([$orden['id_supervisor']]);
-                    $supervisor = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($supervisor) {
-                        $orden['supervisor_nombre'] = $supervisor['nombre'];
-                    } else {
-                        $orden['supervisor_nombre'] = 'Supervisor ID: ' . $orden['id_supervisor'] . ' (no encontrado)';
-                        error_log("obtenerPorId: Supervisor ID " . $orden['id_supervisor'] . " no encontrado para orden $id");
-                    }
-                } catch (PDOException $e) {
-                    error_log("obtenerPorId: Error al obtener supervisor para orden $id: " . $e->getMessage());
-                    $orden['supervisor_nombre'] = 'Error al cargar supervisor';
-                }
-            } else {
-                $orden['supervisor_nombre'] = 'Sin asignar';
-            }
-            
-            // Planta
-            if (!empty($orden['id_planta'])) {
-                try {
-                    $sql = "SELECT nombre_planta FROM plantas WHERE id_planta = ?";
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([$orden['id_planta']]);
-                    $planta = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($planta) {
-                        $orden['nombre_planta'] = $planta['nombre_planta'];
-                    } else {
-                        $orden['nombre_planta'] = 'Planta ID: ' . $orden['id_planta'] . ' (no encontrada)';
-                        error_log("obtenerPorId: Planta ID " . $orden['id_planta'] . " no encontrada para orden $id");
-                    }
-                } catch (PDOException $e) {
-                    error_log("obtenerPorId: Error al obtener planta para orden $id: " . $e->getMessage());
-                    $orden['nombre_planta'] = 'Error al cargar planta';
-                }
-            } else {
-                $orden['nombre_planta'] = 'Sin asignar';
-            }
-            
-            // Área
-            if (!empty($orden['id_area'])) {
-                try {
-                    $sql = "SELECT nombre_area FROM areas WHERE id_area = ?";
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([$orden['id_area']]);
-                    $area = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($area) {
-                        $orden['nombre_area'] = $area['nombre_area'];
-                    } else {
-                        $orden['nombre_area'] = 'Área ID: ' . $orden['id_area'] . ' (no encontrada)';
-                        error_log("obtenerPorId: Área ID " . $orden['id_area'] . " no encontrada para orden $id");
-                    }
-                } catch (PDOException $e) {
-                    error_log("obtenerPorId: Error al obtener área para orden $id: " . $e->getMessage());
-                    $orden['nombre_area'] = 'Error al cargar área';
-                }
-            } else {
-                $orden['nombre_area'] = 'Sin asignar';
-            }
-            
-            // Equipo
-            if (!empty($orden['id_equipo'])) {
-                try {
-                    $sql = "SELECT nombre_equipo FROM equipos WHERE id_equipo = ?";
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([$orden['id_equipo']]);
-                    $equipo = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($equipo) {
-                        $orden['nombre_equipo'] = $equipo['nombre_equipo'];
-                    } else {
-                        $orden['nombre_equipo'] = 'Equipo ID: ' . $orden['id_equipo'] . ' (no encontrado)';
-                        error_log("obtenerPorId: Equipo ID " . $orden['id_equipo'] . " no encontrado para orden $id");
-                    }
-                } catch (PDOException $e) {
-                    error_log("obtenerPorId: Error al obtener equipo para orden $id: " . $e->getMessage());
-                    $orden['nombre_equipo'] = 'Error al cargar equipo';
-                }
-            } else {
-                $orden['nombre_equipo'] = 'Sin asignar';
-            }
-            
-            // Componente
-            if (!empty($orden['id_componente'])) {
-                try {
-                    $sql = "SELECT nombre_componente FROM componentes WHERE id_componente = ?";
-                    $stmt = $this->db->prepare($sql);
-                    $stmt->execute([$orden['id_componente']]);
-                    $componente = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($componente) {
-                        $orden['nombre_componente'] = $componente['nombre_componente'];
-                    } else {
-                        $orden['nombre_componente'] = 'Componente ID: ' . $orden['id_componente'] . ' (no encontrado)';
-                        error_log("obtenerPorId: Componente ID " . $orden['id_componente'] . " no encontrado para orden $id");
-                    }
-                } catch (PDOException $e) {
-                    error_log("obtenerPorId: Error al obtener componente para orden $id: " . $e->getMessage());
-                    $orden['nombre_componente'] = 'Error al cargar componente';
-                }
-            } else {
-                $orden['nombre_componente'] = 'Sin asignar';
-            }
+            // Obtener datos relacionados por separado con manejo de errores
+            $this->cargarDatosRelacionados($orden);
             
             // Calcular costo total
             $orden['costo_total_calculado'] = ($orden['costo_repuestos'] ?? 0) + ($orden['costo_mano_obra'] ?? 0);
@@ -238,10 +132,121 @@ class OrdenTrabajo {
     }
 
     /**
+     * Cargar datos relacionados de una orden
+     */
+    private function cargarDatosRelacionados(&$orden) {
+        // Técnico
+        if (!empty($orden['tecnico_id'])) {
+            try {
+                $sql = "SELECT nombre, tarifa FROM tecnicos WHERE id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([(int)$orden['tecnico_id']]);
+                $tecnico = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($tecnico) {
+                    $orden['tecnico_nombre'] = SecurityHelper::preventXSS($tecnico['nombre']);
+                    $orden['tarifa_tecnico'] = (float)($tecnico['tarifa'] ?? 0);
+                } else {
+                    $orden['tecnico_nombre'] = 'Técnico ID: ' . (int)$orden['tecnico_id'] . ' (no encontrado)';
+                    $orden['tarifa_tecnico'] = 0;
+                    error_log("obtenerPorId: Técnico ID " . $orden['tecnico_id'] . " no encontrado para orden {$orden['id']}");
+                }
+            } catch (PDOException $e) {
+                error_log("obtenerPorId: Error al obtener técnico: " . $e->getMessage());
+                $orden['tecnico_nombre'] = 'Error al cargar técnico';
+                $orden['tarifa_tecnico'] = 0;
+            }
+        } else {
+            $orden['tecnico_nombre'] = 'Sin asignar';
+            $orden['tarifa_tecnico'] = 0;
+        }
+        
+        // Supervisor
+        if (!empty($orden['id_supervisor'])) {
+            try {
+                $sql = "SELECT nombre FROM supervisores WHERE id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([(int)$orden['id_supervisor']]);
+                $supervisor = $stmt->fetch(PDO::FETCH_ASSOC);
+                $orden['supervisor_nombre'] = $supervisor ? SecurityHelper::preventXSS($supervisor['nombre']) : 'Supervisor ID: ' . (int)$orden['id_supervisor'] . ' (no encontrado)';
+            } catch (PDOException $e) {
+                error_log("obtenerPorId: Error al obtener supervisor: " . $e->getMessage());
+                $orden['supervisor_nombre'] = 'Error al cargar supervisor';
+            }
+        } else {
+            $orden['supervisor_nombre'] = 'Sin asignar';
+        }
+        
+        // Planta
+        if (!empty($orden['id_planta'])) {
+            try {
+                $sql = "SELECT nombre_planta FROM plantas WHERE id_planta = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([(int)$orden['id_planta']]);
+                $planta = $stmt->fetch(PDO::FETCH_ASSOC);
+                $orden['nombre_planta'] = $planta ? SecurityHelper::preventXSS($planta['nombre_planta']) : 'Planta ID: ' . (int)$orden['id_planta'] . ' (no encontrada)';
+            } catch (PDOException $e) {
+                error_log("obtenerPorId: Error al obtener planta: " . $e->getMessage());
+                $orden['nombre_planta'] = 'Error al cargar planta';
+            }
+        } else {
+            $orden['nombre_planta'] = 'Sin asignar';
+        }
+        
+        // Área
+        if (!empty($orden['id_area'])) {
+            try {
+                $sql = "SELECT nombre_area FROM areas WHERE id_area = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([(int)$orden['id_area']]);
+                $area = $stmt->fetch(PDO::FETCH_ASSOC);
+                $orden['nombre_area'] = $area ? SecurityHelper::preventXSS($area['nombre_area']) : 'Área ID: ' . (int)$orden['id_area'] . ' (no encontrada)';
+            } catch (PDOException $e) {
+                error_log("obtenerPorId: Error al obtener área: " . $e->getMessage());
+                $orden['nombre_area'] = 'Error al cargar área';
+            }
+        } else {
+            $orden['nombre_area'] = 'Sin asignar';
+        }
+        
+        // Equipo
+        if (!empty($orden['id_equipo'])) {
+            try {
+                $sql = "SELECT nombre_equipo FROM equipos WHERE id_equipo = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([(int)$orden['id_equipo']]);
+                $equipo = $stmt->fetch(PDO::FETCH_ASSOC);
+                $orden['nombre_equipo'] = $equipo ? SecurityHelper::preventXSS($equipo['nombre_equipo']) : 'Equipo ID: ' . (int)$orden['id_equipo'] . ' (no encontrado)';
+            } catch (PDOException $e) {
+                error_log("obtenerPorId: Error al obtener equipo: " . $e->getMessage());
+                $orden['nombre_equipo'] = 'Error al cargar equipo';
+            }
+        } else {
+            $orden['nombre_equipo'] = 'Sin asignar';
+        }
+        
+        // Componente
+        if (!empty($orden['id_componente'])) {
+            try {
+                $sql = "SELECT nombre_componente FROM componentes WHERE id_componente = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([(int)$orden['id_componente']]);
+                $componente = $stmt->fetch(PDO::FETCH_ASSOC);
+                $orden['nombre_componente'] = $componente ? SecurityHelper::preventXSS($componente['nombre_componente']) : 'Componente ID: ' . (int)$orden['id_componente'] . ' (no encontrado)';
+            } catch (PDOException $e) {
+                error_log("obtenerPorId: Error al obtener componente: " . $e->getMessage());
+                $orden['nombre_componente'] = 'Error al cargar componente';
+            }
+        } else {
+            $orden['nombre_componente'] = 'Sin asignar';
+        }
+    }
+
+    /**
      * Obtener orden por número de OM
      */
     public function obtenerPorNumOM($num_om) {
         try {
+            $num_om = SecurityHelper::sanitizeForDB($num_om);
             $sql = "SELECT * FROM ordenes_mantenimiento WHERE num_om = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$num_om]);
@@ -253,10 +258,27 @@ class OrdenTrabajo {
     }
 
     /**
-     * Crear nueva orden de trabajo con costos
+     * Crear nueva orden de trabajo
      */
     public function crear($datos) {
         try {
+            // Validar datos
+            $errores = $this->validarDatos($datos, true);
+            if (!empty($errores)) {
+                $_SESSION['errores'] = $errores;
+                return false;
+            }
+            
+            // Sanitizar datos
+            $datos = $this->sanitizarDatos($datos);
+            
+            // Calcular costos
+            $horas = (float)($datos['horas_trabajadas'] ?? 0);
+            $tarifa = (float)($datos['tarifa_tecnico'] ?? 0);
+            $costo_repuestos = (float)($datos['costo_repuestos'] ?? 0);
+            $costo_mano_obra = $horas * $tarifa;
+            $costo_total = $costo_repuestos + $costo_mano_obra;
+
             $sql = "INSERT INTO ordenes_mantenimiento (
                         num_om, cantidad, mes, semana, fecha_emision, fecha_inicio, 
                         fecha_estimada, nombre_planta, nombre_area, nombre_equipo, 
@@ -279,17 +301,10 @@ class OrdenTrabajo {
                         :status, :creado_por
                     )";
             
-            // Calcular costos si no vienen
-            $horas = $datos['horas_trabajadas'] ?? 0;
-            $tarifa = $datos['tarifa_tecnico'] ?? 0;
-            $costo_repuestos = $datos['costo_repuestos'] ?? 0;
-            $costo_mano_obra = $horas * $tarifa;
-            $costo_total = $costo_repuestos + $costo_mano_obra;
-            
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 'num_om' => $datos['num_om'],
-                'cantidad' => $datos['cantidad'] ?? 1,
+                'cantidad' => (int)($datos['cantidad'] ?? 1),
                 'mes' => $datos['mes'] ?? '',
                 'semana' => $datos['semana'] ?? '',
                 'fecha_emision' => $datos['fecha_emision'] ?? date('Y-m-d'),
@@ -299,44 +314,55 @@ class OrdenTrabajo {
                 'nombre_area' => $datos['nombre_area'] ?? '',
                 'nombre_equipo' => $datos['nombre_equipo'] ?? '',
                 'nombre_componente' => $datos['nombre_componente'] ?? '',
-                'id_planta' => $datos['id_planta'] ?? null,
-                'id_area' => $datos['id_area'] ?? null,
-                'id_equipo' => $datos['id_equipo'] ?? null,
-                'id_componente' => $datos['id_componente'] ?? null,
-                'titulo' => $datos['titulo'],
+                'id_planta' => !empty($datos['id_planta']) ? (int)$datos['id_planta'] : null,
+                'id_area' => !empty($datos['id_area']) ? (int)$datos['id_area'] : null,
+                'id_equipo' => !empty($datos['id_equipo']) ? (int)$datos['id_equipo'] : null,
+                'id_componente' => !empty($datos['id_componente']) ? (int)$datos['id_componente'] : null,
+                'titulo' => $datos['titulo'] ?? '',
                 'descripcion_mantenimiento' => $datos['descripcion_mantenimiento'] ?? '',
                 'tipo_actividad' => $datos['tipo_actividad'] ?? '',
                 'tipo_mantenimiento' => $datos['tipo_mantenimiento'] ?? '',
                 'prioridad' => $datos['prioridad'] ?? 'Media',
                 'solicitante' => $datos['solicitante'] ?? '',
                 'supervisor_solicitante' => $datos['supervisor_solicitante'] ?? '',
-                'id_supervisor' => $datos['id_supervisor'] ?? null,
-                'tecnico_id' => $datos['tecnico_id'] ?? null,
-                'horas_duracion' => $datos['horas_duracion'] ?? 0,
+                'id_supervisor' => !empty($datos['id_supervisor']) ? (int)$datos['id_supervisor'] : null,
+                'tecnico_id' => !empty($datos['tecnico_id']) ? (int)$datos['tecnico_id'] : null,
+                'horas_duracion' => (float)($datos['horas_duracion'] ?? 0),
                 'horas_trabajadas' => $horas,
                 'tarifa_tecnico' => $tarifa,
                 'costo_total' => $costo_total,
                 'costo_repuestos' => $costo_repuestos,
                 'costo_mano_obra' => $costo_mano_obra,
-                'status' => $datos['status'] ?? 'PENDIENTE',
-                'creado_por' => $datos['creado_por'] ?? $_SESSION['usuario_id'] ?? 1
+                'status' => $datos['status'] ?? self::ESTADO_PENDIENTE,
+                'creado_por' => (int)($datos['creado_por'] ?? $_SESSION['usuario_id'] ?? 1)
             ]);
             return $this->db->lastInsertId();
         } catch (PDOException $e) {
             error_log("Error en crear (OrdenTrabajo): " . $e->getMessage());
+            $_SESSION['error'] = 'Error al crear la orden: ' . $e->getMessage();
             return false;
         }
     }
 
     /**
-     * Actualizar orden de trabajo con costos
+     * Actualizar orden de trabajo
      */
     public function actualizar($id, $datos) {
         try {
+            // Validar datos
+            $errores = $this->validarDatos($datos, false);
+            if (!empty($errores)) {
+                $_SESSION['errores'] = $errores;
+                return false;
+            }
+            
+            // Sanitizar datos
+            $datos = $this->sanitizarDatos($datos);
+            
             // Calcular costos
-            $horas = $datos['horas_trabajadas'] ?? 0;
-            $tarifa = $datos['tarifa_tecnico'] ?? 0;
-            $costo_repuestos = $datos['costo_repuestos'] ?? 0;
+            $horas = (float)($datos['horas_trabajadas'] ?? 0);
+            $tarifa = (float)($datos['tarifa_tecnico'] ?? 0);
+            $costo_repuestos = (float)($datos['costo_repuestos'] ?? 0);
             $costo_mano_obra = $horas * $tarifa;
             $costo_total = $costo_repuestos + $costo_mano_obra;
 
@@ -379,7 +405,7 @@ class OrdenTrabajo {
             
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                $datos['cantidad'] ?? 1,
+                (int)($datos['cantidad'] ?? 1),
                 $datos['mes'] ?? '',
                 $datos['semana'] ?? '',
                 $datos['fecha_emision'] ?? date('Y-m-d'),
@@ -389,10 +415,10 @@ class OrdenTrabajo {
                 $datos['nombre_area'] ?? '',
                 $datos['nombre_equipo'] ?? '',
                 $datos['nombre_componente'] ?? '',
-                $datos['id_planta'] ?? null,
-                $datos['id_area'] ?? null,
-                $datos['id_equipo'] ?? null,
-                $datos['id_componente'] ?? null,
+                !empty($datos['id_planta']) ? (int)$datos['id_planta'] : null,
+                !empty($datos['id_area']) ? (int)$datos['id_area'] : null,
+                !empty($datos['id_equipo']) ? (int)$datos['id_equipo'] : null,
+                !empty($datos['id_componente']) ? (int)$datos['id_componente'] : null,
                 $datos['titulo'] ?? '',
                 $datos['descripcion_mantenimiento'] ?? '',
                 $datos['descripcion_realizada'] ?? '',
@@ -401,35 +427,103 @@ class OrdenTrabajo {
                 $datos['prioridad'] ?? 'Media',
                 $datos['solicitante'] ?? '',
                 $datos['supervisor_solicitante'] ?? '',
-                $datos['id_supervisor'] ?? null,
-                $datos['tecnico_id'] ?? null,
-                $datos['horas_duracion'] ?? 0,
+                !empty($datos['id_supervisor']) ? (int)$datos['id_supervisor'] : null,
+                !empty($datos['tecnico_id']) ? (int)$datos['tecnico_id'] : null,
+                (float)($datos['horas_duracion'] ?? 0),
                 $horas,
                 $tarifa,
                 $costo_total,
                 $costo_repuestos,
                 $costo_mano_obra,
-                $datos['status'] ?? 'PENDIENTE',
+                $datos['status'] ?? self::ESTADO_PENDIENTE,
                 $datos['observaciones_tecnico'] ?? '',
                 $datos['observaciones_cierre'] ?? '',
-                $datos['actualizado_por'] ?? $_SESSION['usuario_id'] ?? 1,
-                $id
+                (int)($datos['actualizado_por'] ?? $_SESSION['usuario_id'] ?? 1),
+                (int)$id
             ]);
         } catch (PDOException $e) {
             error_log("Error en actualizar (OrdenTrabajo): " . $e->getMessage());
+            $_SESSION['error'] = 'Error al actualizar la orden: ' . $e->getMessage();
             return false;
         }
     }
 
     /**
-     * Cerrar orden de trabajo con costos
+     * Validar datos de orden
+     */
+    private function validarDatos($datos, $esCreacion = true) {
+        $errores = [];
+        
+        // Validar título
+        if (empty($datos['titulo'])) {
+            $errores[] = 'El título es obligatorio';
+        } elseif (strlen($datos['titulo']) > 200) {
+            $errores[] = 'El título no puede tener más de 200 caracteres';
+        }
+        
+        // Validar número de OM (solo en creación)
+        if ($esCreacion && empty($datos['num_om'])) {
+            $errores[] = 'El número de OM es obligatorio';
+        }
+        
+        // Validar fechas
+        if (!empty($datos['fecha_inicio']) && !ValidationHelper::validateDate($datos['fecha_inicio'])) {
+            $errores[] = 'La fecha de inicio no es válida';
+        }
+        
+        if (!empty($datos['fecha_estimada']) && !ValidationHelper::validateDate($datos['fecha_estimada'])) {
+            $errores[] = 'La fecha estimada no es válida';
+        }
+        
+        // Validar horas
+        if (isset($datos['horas_trabajadas']) && !ValidationHelper::validateNumber($datos['horas_trabajadas'], 0, 24)) {
+            $errores[] = 'Las horas trabajadas deben ser entre 0 y 24';
+        }
+        
+        // Validar costos
+        if (isset($datos['costo_repuestos']) && !ValidationHelper::validateNumber($datos['costo_repuestos'], 0)) {
+            $errores[] = 'El costo de repuestos debe ser un número positivo';
+        }
+        
+        return $errores;
+    }
+
+    /**
+     * Sanitizar datos
+     */
+    private function sanitizarDatos($datos) {
+        $sanitizados = [];
+        foreach ($datos as $key => $value) {
+            if (is_string($value)) {
+                $sanitizados[$key] = SecurityHelper::sanitizeForDB($value);
+            } else {
+                $sanitizados[$key] = $value;
+            }
+        }
+        return $sanitizados;
+    }
+
+    /**
+     * Cerrar orden de trabajo
      */
     public function cerrar($id, $datos) {
         try {
+            // Validar ID
+            if (!is_numeric($id) || (int)$id <= 0) {
+                $_SESSION['error'] = 'ID de orden inválido';
+                return false;
+            }
+            
+            // Validar datos
+            if (isset($datos['horas_trabajadas']) && !ValidationHelper::validateNumber($datos['horas_trabajadas'], 0, 24)) {
+                $_SESSION['error'] = 'Las horas trabajadas deben ser entre 0 y 24';
+                return false;
+            }
+            
             // Calcular costos
-            $horas = $datos['horas_trabajadas'] ?? 0;
-            $tarifa = $datos['tarifa_tecnico'] ?? 0;
-            $costo_repuestos = $datos['costo_repuestos'] ?? 0;
+            $horas = (float)($datos['horas_trabajadas'] ?? 0);
+            $tarifa = (float)($datos['tarifa_tecnico'] ?? 0);
+            $costo_repuestos = (float)($datos['costo_repuestos'] ?? 0);
             $costo_mano_obra = $horas * $tarifa;
             $costo_total = $costo_repuestos + $costo_mano_obra;
 
@@ -445,29 +539,31 @@ class OrdenTrabajo {
                         firma_tecnico = ?,
                         observaciones_tecnico = ?,
                         observaciones_cierre = ?,
-                        status = 'CERRADA',
+                        status = ?,
                         fecha_finalizacion = NOW(),
                         actualizado_por = ?
                     WHERE id = ?";
             
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                $datos['descripcion_realizada'] ?? '',
-                $datos['pasos_ejecutados'] ?? '',
+                SecurityHelper::sanitizeForDB($datos['descripcion_realizada'] ?? ''),
+                SecurityHelper::sanitizeForDB($datos['pasos_ejecutados'] ?? ''),
                 $horas,
                 $tarifa,
                 $costo_total,
                 $costo_repuestos,
                 $costo_mano_obra,
-                $datos['foto_evidencia'] ?? '',
-                $datos['firma_tecnico'] ?? '',
-                $datos['observaciones_tecnico'] ?? '',
-                $datos['observaciones_cierre'] ?? '',
-                $datos['actualizado_por'] ?? $_SESSION['usuario_id'] ?? 1,
-                $id
+                SecurityHelper::sanitizeForDB($datos['foto_evidencia'] ?? ''),
+                SecurityHelper::sanitizeForDB($datos['firma_tecnico'] ?? ''),
+                SecurityHelper::sanitizeForDB($datos['observaciones_tecnico'] ?? ''),
+                SecurityHelper::sanitizeForDB($datos['observaciones_cierre'] ?? ''),
+                self::ESTADO_CERRADA,
+                (int)($datos['actualizado_por'] ?? $_SESSION['usuario_id'] ?? 1),
+                (int)$id
             ]);
         } catch (PDOException $e) {
             error_log("Error en cerrar (OrdenTrabajo): " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cerrar la orden: ' . $e->getMessage();
             return false;
         }
     }
@@ -477,6 +573,17 @@ class OrdenTrabajo {
      */
     public function cambiarEstado($id, $estado, $observaciones = null) {
         try {
+            // Validar estado
+            $estados_validos = [
+                self::ESTADO_PENDIENTE, self::ESTADO_EN_PROCESO, self::ESTADO_EJECUTADA,
+                self::ESTADO_CERRADA, self::ESTADO_CANCELADA, self::ESTADO_APROBADA,
+                self::ESTADO_RECHAZADA
+            ];
+            if (!in_array($estado, $estados_validos)) {
+                $_SESSION['error'] = 'Estado inválido';
+                return false;
+            }
+            
             $sql = "UPDATE ordenes_mantenimiento SET 
                         status = ?,
                         observaciones_cierre = ?,
@@ -486,12 +593,13 @@ class OrdenTrabajo {
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
                 $estado,
-                $observaciones,
-                $_SESSION['usuario_id'] ?? 1,
-                $id
+                SecurityHelper::sanitizeForDB($observaciones ?? ''),
+                (int)($_SESSION['usuario_id'] ?? 1),
+                (int)$id
             ]);
         } catch (PDOException $e) {
             error_log("Error en cambiarEstado: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cambiar el estado: ' . $e->getMessage();
             return false;
         }
     }
@@ -503,11 +611,15 @@ class OrdenTrabajo {
         try {
             $sql = "UPDATE ordenes_mantenimiento SET 
                         tecnico_id = ?, 
-                        status = 'EN_PROCESO', 
+                        status = ?,
                         fecha_actualizacion = NOW() 
                     WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$tecnico_id, $orden_id]);
+            return $stmt->execute([
+                (int)$tecnico_id,
+                self::ESTADO_EN_PROCESO,
+                (int)$orden_id
+            ]);
         } catch (PDOException $e) {
             error_log("Error en asignarTecnico: " . $e->getMessage());
             return false;
@@ -524,7 +636,10 @@ class OrdenTrabajo {
                         fecha_actualizacion = NOW() 
                     WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$supervisor_id, $orden_id]);
+            return $stmt->execute([
+                (int)$supervisor_id,
+                (int)$orden_id
+            ]);
         } catch (PDOException $e) {
             error_log("Error en asignarSupervisor: " . $e->getMessage());
             return false;
@@ -538,20 +653,20 @@ class OrdenTrabajo {
         try {
             // Eliminar técnicos asociados
             $stmt = $this->db->prepare("DELETE FROM ordenes_tecnicos WHERE orden_id = ?");
-            $stmt->execute([$id]);
+            $stmt->execute([(int)$id]);
             
             // Eliminar repuestos asociados
             $stmt = $this->db->prepare("DELETE FROM ordenes_repuestos WHERE orden_id = ?");
-            $stmt->execute([$id]);
+            $stmt->execute([(int)$id]);
             
             // Eliminar historial
             $stmt = $this->db->prepare("DELETE FROM ordenes_historial WHERE orden_id = ?");
-            $stmt->execute([$id]);
+            $stmt->execute([(int)$id]);
             
             // Eliminar la orden
             $sql = "DELETE FROM ordenes_mantenimiento WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$id]);
+            return $stmt->execute([(int)$id]);
         } catch (PDOException $e) {
             error_log("Error en eliminar: " . $e->getMessage());
             return false;
@@ -565,34 +680,49 @@ class OrdenTrabajo {
         try {
             $sql = "SELECT 
                         COUNT(*) as total,
-                        SUM(CASE WHEN status = 'PENDIENTE' THEN 1 ELSE 0 END) as pendientes,
-                        SUM(CASE WHEN status = 'EN_PROCESO' THEN 1 ELSE 0 END) as en_proceso,
-                        SUM(CASE WHEN status = 'EJECUTADA' THEN 1 ELSE 0 END) as ejecutadas,
-                        SUM(CASE WHEN status = 'CERRADA' THEN 1 ELSE 0 END) as cerradas,
-                        SUM(CASE WHEN status = 'CANCELADA' THEN 1 ELSE 0 END) as canceladas,
-                        SUM(CASE WHEN status = 'APROBADA' THEN 1 ELSE 0 END) as aprobadas,
-                        SUM(CASE WHEN status = 'RECHAZADA' THEN 1 ELSE 0 END) as rechazadas,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as pendientes,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as en_proceso,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as ejecutadas,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cerradas,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as canceladas,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as aprobadas,
+                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as rechazadas,
                         AVG(horas_trabajadas) as promedio_horas,
                         AVG(costo_total) as promedio_costo,
                         SUM(costo_total) as total_costos
                     FROM ordenes_mantenimiento";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt->execute([
+                self::ESTADO_PENDIENTE,
+                self::ESTADO_EN_PROCESO,
+                self::ESTADO_EJECUTADA,
+                self::ESTADO_CERRADA,
+                self::ESTADO_CANCELADA,
+                self::ESTADO_APROBADA,
+                self::ESTADO_RECHAZADA
+            ]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return [
+                'total' => (int)($result['total'] ?? 0),
+                'pendientes' => (int)($result['pendientes'] ?? 0),
+                'en_proceso' => (int)($result['en_proceso'] ?? 0),
+                'ejecutadas' => (int)($result['ejecutadas'] ?? 0),
+                'cerradas' => (int)($result['cerradas'] ?? 0),
+                'canceladas' => (int)($result['canceladas'] ?? 0),
+                'aprobadas' => (int)($result['aprobadas'] ?? 0),
+                'rechazadas' => (int)($result['rechazadas'] ?? 0),
+                'promedio_horas' => round((float)($result['promedio_horas'] ?? 0), 1),
+                'promedio_costo' => round((float)($result['promedio_costo'] ?? 0), 2),
+                'total_costos' => round((float)($result['total_costos'] ?? 0), 2)
+            ];
         } catch (PDOException $e) {
             error_log("Error en obtenerEstadisticas: " . $e->getMessage());
             return [
-                'total' => 0,
-                'pendientes' => 0,
-                'en_proceso' => 0,
-                'ejecutadas' => 0,
-                'cerradas' => 0,
-                'canceladas' => 0,
-                'aprobadas' => 0,
-                'rechazadas' => 0,
-                'promedio_horas' => 0,
-                'promedio_costo' => 0,
-                'total_costos' => 0
+                'total' => 0, 'pendientes' => 0, 'en_proceso' => 0,
+                'ejecutadas' => 0, 'cerradas' => 0, 'canceladas' => 0,
+                'aprobadas' => 0, 'rechazadas' => 0,
+                'promedio_horas' => 0, 'promedio_costo' => 0, 'total_costos' => 0
             ];
         }
     }
@@ -611,13 +741,13 @@ class OrdenTrabajo {
                         COALESCE(AVG(horas_trabajadas), 0) as promedio_horas,
                         COALESCE(SUM(horas_trabajadas), 0) as total_horas
                     FROM ordenes_mantenimiento
-                    WHERE status IN ('CERRADA', 'APROBADA', 'EJECUTADA')";
-            $params = [];
+                    WHERE status IN (?, ?, ?)";
+            $params = [self::ESTADO_CERRADA, self::ESTADO_APROBADA, self::ESTADO_EJECUTADA];
 
             if ($fechaInicio && $fechaFin) {
                 $sql .= " AND fecha_creacion BETWEEN ? AND ?";
-                $params[] = $fechaInicio . ' 00:00:00';
-                $params[] = $fechaFin . ' 23:59:59';
+                $params[] = SecurityHelper::sanitizeForDB($fechaInicio . ' 00:00:00');
+                $params[] = SecurityHelper::sanitizeForDB($fechaFin . ' 23:59:59');
             }
 
             $stmt = $this->db->prepare($sql);
@@ -636,13 +766,9 @@ class OrdenTrabajo {
         } catch (PDOException $e) {
             error_log("Error en obtenerEstadisticasFinancieras: " . $e->getMessage());
             return [
-                'total_ordenes' => 0,
-                'total_costos' => 0,
-                'total_repuestos' => 0,
-                'total_mano_obra' => 0,
-                'promedio_costo' => 0,
-                'promedio_horas' => 0,
-                'total_horas' => 0
+                'total_ordenes' => 0, 'total_costos' => 0,
+                'total_repuestos' => 0, 'total_mano_obra' => 0,
+                'promedio_costo' => 0, 'promedio_horas' => 0, 'total_horas' => 0
             ];
         }
     }
@@ -659,14 +785,14 @@ class OrdenTrabajo {
                         SUM(costo_repuestos) as total_repuestos,
                         SUM(costo_mano_obra) as total_mano_obra
                     FROM ordenes_mantenimiento
-                    WHERE status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
+                    WHERE status IN (?, ?, ?)
                     AND nombre_planta IS NOT NULL AND nombre_planta != ''";
-            $params = [];
+            $params = [self::ESTADO_CERRADA, self::ESTADO_APROBADA, self::ESTADO_EJECUTADA];
 
             if ($fechaInicio && $fechaFin) {
                 $sql .= " AND fecha_creacion BETWEEN ? AND ?";
-                $params[] = $fechaInicio . ' 00:00:00';
-                $params[] = $fechaFin . ' 23:59:59';
+                $params[] = SecurityHelper::sanitizeForDB($fechaInicio . ' 00:00:00');
+                $params[] = SecurityHelper::sanitizeForDB($fechaFin . ' 23:59:59');
             }
 
             $sql .= " GROUP BY nombre_planta ORDER BY total_costos DESC";
@@ -693,14 +819,14 @@ class OrdenTrabajo {
                         SUM(o.costo_mano_obra) as total_mano_obra
                     FROM ordenes_mantenimiento o
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
-                    WHERE o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
+                    WHERE o.status IN (?, ?, ?)
                     AND o.tecnico_id IS NOT NULL";
-            $params = [];
+            $params = [self::ESTADO_CERRADA, self::ESTADO_APROBADA, self::ESTADO_EJECUTADA];
 
             if ($fechaInicio && $fechaFin) {
                 $sql .= " AND o.fecha_creacion BETWEEN ? AND ?";
-                $params[] = $fechaInicio . ' 00:00:00';
-                $params[] = $fechaFin . ' 23:59:59';
+                $params[] = SecurityHelper::sanitizeForDB($fechaInicio . ' 00:00:00');
+                $params[] = SecurityHelper::sanitizeForDB($fechaFin . ' 23:59:59');
             }
 
             $sql .= " GROUP BY o.tecnico_id ORDER BY total_costos DESC";
@@ -729,13 +855,18 @@ class OrdenTrabajo {
                         SUM(costo_repuestos) as total_repuestos,
                         SUM(costo_mano_obra) as total_mano_obra
                     FROM ordenes_mantenimiento
-                    WHERE status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
+                    WHERE status IN (?, ?, ?)
                     AND YEAR(fecha_creacion) = ?
                     GROUP BY DATE_FORMAT(fecha_creacion, '%Y-%m')
                     ORDER BY mes ASC";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$anio]);
+            $stmt->execute([
+                self::ESTADO_CERRADA,
+                self::ESTADO_APROBADA,
+                self::ESTADO_EJECUTADA,
+                $anio
+            ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en obtenerCostosPorMes: " . $e->getMessage());
@@ -760,7 +891,7 @@ class OrdenTrabajo {
                     LIMIT ?";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$limite]);
+            $stmt->execute([(int)$limite]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en obtenerTopRepuestos: " . $e->getMessage());
@@ -789,10 +920,10 @@ class OrdenTrabajo {
             if ($limit !== null && $offset !== null) {
                 $sql .= " LIMIT ? OFFSET ?";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$tecnico_id, $limit, $offset]);
+                $stmt->execute([(int)$tecnico_id, (int)$limit, (int)$offset]);
             } else {
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$tecnico_id]);
+                $stmt->execute([(int)$tecnico_id]);
             }
             
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -803,7 +934,7 @@ class OrdenTrabajo {
     }
 
     /**
-     * Obtener órdenes para reporte
+     * Obtener órdenes para reporte (con filtros de fecha)
      */
     public function obtenerParaReporte($fecha_desde, $fecha_hasta, $estado = null) {
         try {
@@ -820,11 +951,14 @@ class OrdenTrabajo {
                     LEFT JOIN areas a ON o.id_area = a.id_area
                     LEFT JOIN equipos e ON o.id_equipo = e.id_equipo
                     WHERE o.fecha_creacion BETWEEN ? AND ?";
-            $params = [$fecha_desde . ' 00:00:00', $fecha_hasta . ' 23:59:59'];
+            $params = [
+                SecurityHelper::sanitizeForDB($fecha_desde . ' 00:00:00'),
+                SecurityHelper::sanitizeForDB($fecha_hasta . ' 23:59:59')
+            ];
 
             if ($estado) {
                 $sql .= " AND o.status = ?";
-                $params[] = $estado;
+                $params[] = SecurityHelper::sanitizeForDB($estado);
             }
 
             $sql .= " ORDER BY o.fecha_creacion DESC";
@@ -836,5 +970,6 @@ class OrdenTrabajo {
             return [];
         }
     }
+
 } // Fin de la clase OrdenTrabajo
 ?>

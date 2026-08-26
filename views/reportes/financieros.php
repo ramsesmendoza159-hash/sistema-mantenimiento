@@ -2,8 +2,29 @@
 // views/reportes/financieros.php
 // Ubicación: C:\xampp\htdocs\proyecto\views\reportes\financieros.php
 
-$titulo = "Reportes Financieros";
-$seccion = "financieros";  // 👈 CAMBIADO de "reportes" a "financieros"
+// Verificar sesión
+if (!isset($_SESSION['usuario_id'])) {
+    header('Location: /proyecto/auth/login');
+    exit;
+}
+
+// Sanitizar datos para la vista
+$seccion = 'reportes';
+$titulo = 'Reportes Financieros';
+
+// Asegurar que las variables existan
+$stats = $stats ?? [
+    'total_ordenes' => 0, 'total_costos' => 0,
+    'total_repuestos' => 0, 'total_mano_obra' => 0,
+    'promedio_costo' => 0, 'promedio_horas' => 0, 'total_horas' => 0
+];
+$costos_por_planta = $costos_por_planta ?? [];
+$costos_por_tecnico = $costos_por_tecnico ?? [];
+$costos_por_mes = $costos_por_mes ?? [];
+$top_repuestos = $top_repuestos ?? [];
+$fechaInicio = $fechaInicio ?? date('Y-m-01');
+$fechaFin = $fechaFin ?? date('Y-m-t');
+
 include_once __DIR__ . '/../layouts/header.php';
 ?>
 
@@ -24,6 +45,15 @@ include_once __DIR__ . '/../layouts/header.php';
                 </div>
             </div>
 
+            <!-- Mostrar errores -->
+            <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <?php unset($_SESSION['error']); ?>
+            <?php endif; ?>
+
             <!-- Filtros -->
             <div class="card mb-4">
                 <div class="card-body">
@@ -31,12 +61,12 @@ include_once __DIR__ . '/../layouts/header.php';
                         <div class="col-md-3">
                             <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
                             <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
-                                   value="<?php echo $fechaInicio ?? date('Y-m-01'); ?>">
+                                   value="<?php echo htmlspecialchars($fechaInicio); ?>">
                         </div>
                         <div class="col-md-3">
                             <label for="fecha_fin" class="form-label">Fecha Fin</label>
                             <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" 
-                                   value="<?php echo $fechaFin ?? date('Y-m-t'); ?>">
+                                   value="<?php echo htmlspecialchars($fechaFin); ?>">
                         </div>
                         <div class="col-md-3">
                             <button type="submit" class="btn btn-primary w-100">
@@ -116,7 +146,7 @@ include_once __DIR__ . '/../layouts/header.php';
                 </div>
             </div>
 
-            <!-- Gráficos -->
+            <!-- Gráficos - Solo mostrar si hay datos -->
             <div class="row">
                 <div class="col-md-6 mb-4">
                     <div class="card">
@@ -125,6 +155,9 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                         <div class="card-body">
                             <canvas id="costosPlantaChart"></canvas>
+                            <?php if (empty($costos_por_planta)): ?>
+                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -135,6 +168,9 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                         <div class="card-body">
                             <canvas id="distribucionChart"></canvas>
+                            <?php if (($stats['total_costos'] ?? 0) <= 0): ?>
+                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -148,6 +184,9 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                         <div class="card-body">
                             <canvas id="mensualChart"></canvas>
+                            <?php if (empty($costos_por_mes)): ?>
+                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -158,6 +197,9 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                         <div class="card-body">
                             <canvas id="repuestosChart"></canvas>
+                            <?php if (empty($top_repuestos)): ?>
+                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -186,7 +228,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <?php foreach ($costos_por_tecnico as $tecnico): ?>
                                         <tr>
                                             <td><strong><?php echo htmlspecialchars($tecnico['tecnico']); ?></strong></td>
-                                            <td><?php echo $tecnico['total_ordenes']; ?></td>
+                                            <td><?php echo (int)($tecnico['total_ordenes'] ?? 0); ?></td>
                                             <td><?php echo number_format($tecnico['total_horas'] ?? 0, 1); ?></td>
                                             <td><?php echo number_format($tecnico['promedio_horas'] ?? 0, 1); ?></td>
                                             <td>S/ <?php echo number_format($tecnico['total_mano_obra'] ?? 0, 2); ?></td>
@@ -195,7 +237,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <?php endforeach; ?>
                                 <?php else: ?>
                                     <tr>
-                                        <td colspan="6" class="text-center">No hay datos disponibles</td>
+                                        <td colspan="6" class="text-center text-muted">No hay datos disponibles</td>
                                     </tr>
                                 <?php endif; ?>
                             </tbody>
@@ -209,186 +251,176 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Costos por Planta
-    <?php if (!empty($costos_por_planta)): ?>
-    const ctxPlanta = document.getElementById('costosPlantaChart').getContext('2d');
-    new Chart(ctxPlanta, {
-        type: 'bar',
-        data: {
-            labels: <?php echo json_encode(array_column($costos_por_planta, 'nombre_planta')); ?>,
-            datasets: [
-                {
-                    label: 'Costo Total',
-                    data: <?php echo json_encode(array_column($costos_por_planta, 'total_costos')); ?>,
-                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
-                    borderColor: '#0d6efd',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Repuestos',
-                    data: <?php echo json_encode(array_column($costos_por_planta, 'total_repuestos')); ?>,
-                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                    borderColor: '#ffc107',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Mano de Obra',
-                    data: <?php echo json_encode(array_column($costos_por_planta, 'total_mano_obra')); ?>,
-                    backgroundColor: 'rgba(23, 162, 184, 0.7)',
-                    borderColor: '#17a2b8',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
+    document.addEventListener('DOMContentLoaded', function() {
+        <?php if (!empty($costos_por_planta)): ?>
+        // Costos por Planta
+        const ctxPlanta = document.getElementById('costosPlantaChart').getContext('2d');
+        new Chart(ctxPlanta, {
+            type: 'bar',
+            data: {
+                labels: <?php echo json_encode(array_column($costos_por_planta, 'nombre_planta')); ?>,
+                datasets: [
+                    {
+                        label: 'Costo Total',
+                        data: <?php echo json_encode(array_column($costos_por_planta, 'total_costos')); ?>,
+                        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                        borderColor: '#0d6efd',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Repuestos',
+                        data: <?php echo json_encode(array_column($costos_por_planta, 'total_repuestos')); ?>,
+                        backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                        borderColor: '#ffc107',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Mano de Obra',
+                        data: <?php echo json_encode(array_column($costos_por_planta, 'total_mano_obra')); ?>,
+                        backgroundColor: 'rgba(23, 162, 184, 0.7)',
+                        borderColor: '#17a2b8',
+                        borderWidth: 1
+                    }
+                ]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return 'S/ ' + value.toFixed(2);
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'S/ ' + value.toFixed(2);
+                            }
                         }
                     }
                 }
             }
-        }
-    });
-    <?php endif; ?>
+        });
+        <?php endif; ?>
 
-    // Distribución de Costos
-    <?php if (isset($stats['total_costos']) && $stats['total_costos'] > 0): ?>
-    const ctxDist = document.getElementById('distribucionChart').getContext('2d');
-    new Chart(ctxDist, {
-        type: 'doughnut',
-        data: {
-            labels: ['Repuestos', 'Mano de Obra'],
-            datasets: [{
-                data: [
-                    <?php echo $stats['total_repuestos'] ?? 0; ?>,
-                    <?php echo $stats['total_mano_obra'] ?? 0; ?>
-                ],
-                backgroundColor: ['#ffc107', '#17a2b8'],
-                borderColor: '#fff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            let percentage = ((context.raw / total) * 100).toFixed(1);
-                            return 'S/ ' + context.raw.toFixed(2) + ' (' + percentage + '%)';
-                        }
-                    }
-                }
-            }
-        }
-    });
-    <?php endif; ?>
-
-    // Evolución Mensual
-    <?php if (!empty($costos_por_mes)): ?>
-    const ctxMensual = document.getElementById('mensualChart').getContext('2d');
-    new Chart(ctxMensual, {
-        type: 'line',
-        data: {
-            labels: <?php echo json_encode(array_column($costos_por_mes, 'mes')); ?>,
-            datasets: [
-                {
-                    label: 'Costo Total',
-                    data: <?php echo json_encode(array_column($costos_por_mes, 'total_costos')); ?>,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    fill: true,
-                    tension: 0.3
-                },
-                {
-                    label: 'Repuestos',
-                    data: <?php echo json_encode(array_column($costos_por_mes, 'total_repuestos')); ?>,
-                    borderColor: '#ffc107',
-                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                    fill: true,
-                    tension: 0.3
-                },
-                {
-                    label: 'Mano de Obra',
-                    data: <?php echo json_encode(array_column($costos_por_mes, 'total_mano_obra')); ?>,
-                    borderColor: '#17a2b8',
-                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                    fill: true,
-                    tension: 0.3
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
+        <?php if (isset($stats['total_costos']) && $stats['total_costos'] > 0): ?>
+        // Distribución de Costos
+        const ctxDist = document.getElementById('distribucionChart').getContext('2d');
+        new Chart(ctxDist, {
+            type: 'doughnut',
+            data: {
+                labels: ['Repuestos', 'Mano de Obra'],
+                datasets: [{
+                    data: [
+                        <?php echo $stats['total_repuestos'] ?? 0; ?>,
+                        <?php echo $stats['total_mano_obra'] ?? 0; ?>
+                    ],
+                    backgroundColor: ['#ffc107', '#17a2b8'],
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return 'S/ ' + value.toFixed(2);
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                let percentage = ((context.raw / total) * 100).toFixed(1);
+                                return 'S/ ' + context.raw.toFixed(2) + ' (' + percentage + '%)';
+                            }
                         }
                     }
                 }
             }
-        }
-    });
-    <?php endif; ?>
+        });
+        <?php endif; ?>
 
-    // Top Repuestos
-    <?php if (!empty($top_repuestos)): ?>
-    const ctxRepuestos = document.getElementById('repuestosChart').getContext('2d');
-    new Chart(ctxRepuestos, {
-        type: 'bar',
-        data: {
-            labels: <?php echo json_encode(array_column($top_repuestos, 'nombre')); ?>,
-            datasets: [
-                {
+        <?php if (!empty($costos_por_mes)): ?>
+        // Evolución Mensual
+        const ctxMensual = document.getElementById('mensualChart').getContext('2d');
+        new Chart(ctxMensual, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode(array_column($costos_por_mes, 'mes')); ?>,
+                datasets: [
+                    {
+                        label: 'Costo Total',
+                        data: <?php echo json_encode(array_column($costos_por_mes, 'total_costos')); ?>,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Repuestos',
+                        data: <?php echo json_encode(array_column($costos_por_mes, 'total_repuestos')); ?>,
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Mano de Obra',
+                        data: <?php echo json_encode(array_column($costos_por_mes, 'total_mano_obra')); ?>,
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'S/ ' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        <?php endif; ?>
+
+        <?php if (!empty($top_repuestos)): ?>
+        // Top Repuestos
+        const ctxRepuestos = document.getElementById('repuestosChart').getContext('2d');
+        new Chart(ctxRepuestos, {
+            type: 'bar',
+            data: {
+                labels: <?php echo json_encode(array_column($top_repuestos, 'nombre')); ?>,
+                datasets: [{
                     label: 'Cantidad Utilizada',
                     data: <?php echo json_encode(array_column($top_repuestos, 'total_utilizados')); ?>,
                     backgroundColor: 'rgba(40, 167, 69, 0.7)',
                     borderColor: '#28a745',
                     borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            indexAxis: 'y',
-            plugins: {
-                legend: {
-                    display: false
-                }
+                }]
             },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
+            options: {
+                responsive: true,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
                     }
                 }
             }
-        }
+        });
+        <?php endif; ?>
     });
-    <?php endif; ?>
 
     function exportarReporte(tipo) {
         const params = new URLSearchParams(window.location.search);

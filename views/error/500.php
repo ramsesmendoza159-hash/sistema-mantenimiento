@@ -1,31 +1,26 @@
 <?php
 // views/error/500.php
-// Ubicación: C:\xampp\htdocs\proyecto\views\error\500.php
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-$titulo = "Error 500 - Error interno del servidor";
-$seccion = "error";
-include_once __DIR__ . '/../layouts/header.php';
 ?>
-
-<div class="container-fluid">
-    <div class="row">
-        <?php include_once __DIR__ . '/../layouts/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="text-center py-5">
-                <div class="display-1 text-muted">500</div>
-                <h1 class="display-4">Error interno del servidor</h1>
-                <p class="lead">Algo salió mal. Por favor, inténtalo de nuevo más tarde.</p>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 - Error del servidor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container text-center py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <h1 class="display-1 text-muted">500</h1>
+                <h2 class="mb-4">Error del servidor</h2>
+                <p class="text-muted mb-4">Ha ocurrido un error interno. Por favor, intenta más tarde.</p>
                 <a href="/proyecto/dashboard" class="btn btn-primary">
-                    <i class="fas fa-home"></i> Volver al inicio
+                    <i class="fas fa-home"></i> Volver al Dashboard
                 </a>
             </div>
-        </main>
+        </div>
     </div>
-</div>
-
-<?php include_once __DIR__ . '/../layouts/footer.php'; ?>
+</body>
+</html>

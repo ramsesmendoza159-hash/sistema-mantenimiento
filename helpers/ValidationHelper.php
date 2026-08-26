@@ -1,160 +1,76 @@
 <?php
 // helpers/ValidationHelper.php
-// Ubicación: C:\xampp\htdocs\proyecto\helpers\ValidationHelper.php
+// Helper para validación de datos
 
-class ValidationHelper
-{
+class ValidationHelper {
+    
     /**
-     * Validar que un campo no esté vacío
+     * Sanitizar entrada
      */
-    public static function required($value): bool
-    {
-        if (is_array($value)) {
-            return !empty($value);
+    public static function sanitize($data) {
+        if (is_array($data)) {
+            return array_map([self::class, 'sanitize'], $data);
         }
-        return trim((string)$value) !== '';
+        return htmlspecialchars(trim(strip_tags($data)), ENT_QUOTES, 'UTF-8');
     }
-
+    
     /**
-     * Validar que un campo tenga una longitud mínima
+     * Validar email
      */
-    public static function minLength($value, int $min): bool
-    {
-        return strlen((string)$value) >= $min;
-    }
-
-    /**
-     * Validar que un campo tenga una longitud máxima
-     */
-    public static function maxLength($value, int $max): bool
-    {
-        return strlen((string)$value) <= $max;
-    }
-
-    /**
-     * Validar que un campo sea un email válido
-     */
-    public static function email(string $email): bool
-    {
+    public static function validateEmail($email) {
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
-
+    
     /**
-     * Validar que un campo sea un número entero
+     * Validar fecha
      */
-    public static function integer($value): bool
-    {
-        return filter_var($value, FILTER_VALIDATE_INT) !== false;
-    }
-
-    /**
-     * Validar que un campo sea un número decimal
-     */
-    public static function float($value): bool
-    {
-        return filter_var($value, FILTER_VALIDATE_FLOAT) !== false;
-    }
-
-    /**
-     * Validar que un campo sea una fecha válida
-     */
-    public static function date(string $date, string $format = 'Y-m-d'): bool
-    {
+    public static function validateDate($date, $format = 'Y-m-d') {
         $d = DateTime::createFromFormat($format, $date);
         return $d && $d->format($format) === $date;
     }
-
+    
     /**
-     * Validar que un campo esté en un arreglo de valores permitidos
+     * Validar campos requeridos
      */
-    public static function inArray($value, array $allowed): bool
-    {
-        return in_array($value, $allowed, true);
-    }
-
-    /**
-     * Validar que un campo sea un número entre un rango
-     */
-    public static function between($value, int $min, int $max): bool
-    {
-        $value = (int)$value;
-        return $value >= $min && $value <= $max;
-    }
-
-    /**
-     * Validar que un campo sea un teléfono válido
-     */
-    public static function phone(string $phone): bool
-    {
-        return preg_match('/^[0-9+\-\s()]{7,20}$/', $phone) === 1;
-    }
-
-    /**
-     * Validar que un campo sea una URL válida
-     */
-    public static function url(string $url): bool
-    {
-        return filter_var($url, FILTER_VALIDATE_URL) !== false;
-    }
-
-    /**
-     * Validar todos los campos de un arreglo
-     */
-    public static function validate(array $data, array $rules): array
-    {
+    public static function validateRequired($data, $fields) {
         $errors = [];
-
-        foreach ($rules as $field => $ruleSet) {
-            $value = $data[$field] ?? null;
-
-            foreach ($ruleSet as $rule) {
-                if (is_string($rule)) {
-                    // Regla simple: 'required', 'email', etc.
-                    $method = $rule;
-                    if (method_exists(self::class, $method)) {
-                        if (!self::$method($value)) {
-                            $errors[$field][] = "El campo {$field} no es válido para la regla {$rule}";
-                            break;
-                        }
-                    }
-                } elseif (is_array($rule)) {
-                    // Regla con parámetros: ['minLength', 6]
-                    $method = $rule[0];
-                    $params = array_slice($rule, 1);
-                    if (method_exists(self::class, $method)) {
-                        if (!self::$method($value, ...$params)) {
-                            $errors[$field][] = "El campo {$field} no cumple con la regla {$method}";
-                            break;
-                        }
-                    }
-                }
+        foreach ($fields as $field) {
+            if (!isset($data[$field]) || trim($data[$field]) === '') {
+                $errors[] = "El campo '$field' es obligatorio";
             }
         }
-
         return $errors;
     }
-
+    
     /**
-     * Sanitizar una cadena
+     * Validar longitud
      */
-    public static function sanitize(string $input): string
-    {
-        return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+    public static function validateLength($value, $min, $max) {
+        $len = strlen(trim($value));
+        return $len >= $min && $len <= $max;
     }
-
+    
     /**
-     * Sanitizar un arreglo completo
+     * Validar número
      */
-    public static function sanitizeArray(array $data): array
-    {
-        $result = [];
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                $result[$key] = self::sanitizeArray($value);
-            } else {
-                $result[$key] = self::sanitize((string)$value);
-            }
+    public static function validateNumber($value, $min = null, $max = null) {
+        if (!is_numeric($value)) {
+            return false;
         }
-        return $result;
+        if ($min !== null && $value < $min) {
+            return false;
+        }
+        if ($max !== null && $value > $max) {
+            return false;
+        }
+        return true;
+    }
+    
+    /**
+     * Validar URL
+     */
+    public static function validateUrl($url) {
+        return filter_var($url, FILTER_VALIDATE_URL) !== false;
     }
 }
+?>
