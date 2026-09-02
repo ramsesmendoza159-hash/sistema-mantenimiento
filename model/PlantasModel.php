@@ -1,6 +1,7 @@
 <?php
 // model/PlantasModel.php
 // Ubicación: C:\xampp\htdocs\proyecto\model\PlantasModel.php
+// VERSIÓN COMPLETA CON MÉTODO obtenerTotal()
 
 // Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';
@@ -230,4 +231,22 @@ class PlantasModel
             return false;
         }
     }
+
+    /**
+     * ✅ OBTENER TOTAL DE PLANTAS (AGREGADO)
+     */
+    public function obtenerTotal()
+    {
+        try {
+            $sql = "SELECT COUNT(*) as total FROM plantas";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            return (int)($resultado['total'] ?? 0);
+        } catch (PDOException $e) {
+            error_log("Error en obtenerTotal (Plantas): " . $e->getMessage());
+            return 0;
+        }
+    }
 }
+?>

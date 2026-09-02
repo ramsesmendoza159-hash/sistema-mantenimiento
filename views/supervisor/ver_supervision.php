@@ -1,145 +1,188 @@
 <?php
-session_start();
-if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'supervisor') {
-    header('Location: /proyecto/auth/login');
-    exit();
+// views/supervisor/ver_supervision.php
+// Ver Supervisión - VERSIÓN COMPLETA
+
+if (!isset($seccion)) {
+    $seccion = 'supervisor';
 }
-
-$titulo = "Detalle de Supervisión";
-$seccion = "supervisor";
-include_once __DIR__ . '/../layouts/header.php';
-
-$supervision = $supervision ?? null;
-if (!$supervision) {
+if (!isset($titulo)) {
+    $titulo = 'Detalle de Supervisión';
+}
+if (!isset($supervision) || !$supervision) {
     header('Location: /proyecto/supervisor/supervisiones');
     exit();
 }
+
+include_once __DIR__ . '/../layouts/header.php';
+// ❌ NO incluir sidebar aquí (ya está en header)
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include_once __DIR__ . '/../layouts/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Detalle de Supervisión #<?php echo $supervision['id']; ?></h1>
-                <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Volver
-                </a>
-            </div>
+<div class="container-fluid px-0">
 
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Información de la Supervisión</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>ID:</strong> <?php echo $supervision['id']; ?></p>
-                                    <p><strong>Orden:</strong> #<?php echo $supervision['orden_id']; ?></p>
-                                    <p><strong>Técnico:</strong> <?php echo $supervision['tecnico'] ?? 'N/A'; ?></p>
-                                    <p><strong>Estado:</strong> 
-                                        <span class="badge bg-<?php 
-                                            $estado = $supervision['estado'] ?? 'PENDIENTE';
-                                            echo $estado === 'APROBADA' ? 'success' : 
-                                                 ($estado === 'RECHAZADA' ? 'danger' : 'warning'); 
-                                        ?>">
-                                            <?php echo $estado; ?>
-                                        </span>
-                                    </p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Fecha creación:</strong> <?php echo $supervision['fecha_creacion']; ?></p>
-                                    <p><strong>Calificación:</strong> 
-                                        <?php if ($supervision['calificacion']): ?>
-                                            <span class="fw-bold">
-                                                <?php echo $supervision['calificacion']; ?>/5
-                                            </span>
-                                            <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                <i class="bi bi-star<?php echo $i <= $supervision['calificacion'] ? '-fill' : ''; ?> 
-                                                text-<?php echo $i <= $supervision['calificacion'] ? 'warning' : 'secondary'; ?>">
-                                                </i>
-                                            <?php endfor; ?>
-                                        <?php else: ?>
-                                            N/A
-                                        <?php endif; ?>
-                                    </p>
-                                    <p><strong>Cumple estándares:</strong> 
-                                        <?php echo $supervision['cumple'] ? '✅ Sí' : '❌ No'; ?>
-                                    </p>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="row">
-                                <div class="col-12">
-                                    <h6>Observaciones</h6>
-                                    <p class="mt-2"><?php echo nl2br(htmlspecialchars($supervision['observaciones'] ?? 'Sin observaciones')); ?></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <!-- ✅ Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold">
+                <i class="fas fa-clipboard-check text-primary me-2"></i>Detalle de Supervisión #<?php echo $supervision['id']; ?>
+            </h4>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-info-circle me-1"></i> Información detallada de la supervisión
+            </p>
+        </div>
+        <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Columna principal -->
+        <div class="col-lg-8">
+            <div class="card border-0">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="fas fa-info-circle text-primary me-2"></i> Información de la Supervisión
+                    </h5>
                 </div>
-
-                <div class="col-md-4">
-                    <!-- Detalle de la orden -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Orden Relacionada</h5>
-                        </div>
-                        <div class="card-body">
-                            <?php if (!empty($supervision['orden'])): ?>
-                                <p><strong>Título:</strong> <?php echo htmlspecialchars($supervision['orden']['titulo']); ?></p>
-                                <p><strong>Área:</strong> <?php echo $supervision['orden']['area'] ?? 'N/A'; ?></p>
-                                <p><strong>Prioridad:</strong> 
-                                    <span class="badge bg-<?php 
-                                        $prioridad = $supervision['orden']['prioridad'] ?? 'Media';
-                                        echo $prioridad === 'Urgente' ? 'danger' : 
-                                             ($prioridad === 'Alta' ? 'warning' : 'info'); 
-                                    ?>">
-                                        <?php echo $prioridad; ?>
-                                    </span>
-                                </p>
-                                <p><strong>Estado:</strong> 
-                                    <span class="badge bg-<?php 
-                                        $estado = $supervision['orden']['estado'] ?? 'PENDIENTE';
-                                        echo $estado === 'CERRADA' || $estado === 'APROBADA' ? 'success' : 
-                                             ($estado === 'EN_PROCESO' ? 'info' : 
-                                             ($estado === 'CANCELADA' || $estado === 'RECHAZADA' ? 'danger' : 'warning')); 
-                                    ?>">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">ID</label>
+                                <p class="fw-semibold mb-0"><?php echo $supervision['id']; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">Orden</label>
+                                <p class="fw-semibold mb-0">#<?php echo $supervision['orden_id']; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">Técnico</label>
+                                <p class="fw-semibold mb-0"><?php echo $supervision['tecnico'] ?? 'N/A'; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">Estado</label>
+                                <p class="mb-0">
+                                    <?php 
+                                    $estado = $supervision['estado'] ?? 'PENDIENTE';
+                                    $color = match($estado) {
+                                        'APROBADA' => 'success',
+                                        'RECHAZADA' => 'danger',
+                                        default => 'warning'
+                                    };
+                                    ?>
+                                    <span class="badge bg-<?php echo $color; ?> bg-opacity-10 text-<?php echo $color; ?>">
+                                        <i class="fas fa-circle me-1" style="font-size:6px;"></i>
                                         <?php echo $estado; ?>
                                     </span>
                                 </p>
-                                <a href="/proyecto/supervisor/ver_orden/<?php echo $supervision['orden_id']; ?>" class="btn btn-sm btn-info w-100">
-                                    <i class="bi bi-eye"></i> Ver Orden
-                                </a>
-                            <?php else: ?>
-                                <p class="text-muted">Orden no disponible</p>
-                            <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">Fecha creación</label>
+                                <p class="fw-semibold mb-0"><?php echo date('d/m/Y H:i', strtotime($supervision['fecha_creacion'])); ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">Calificación</label>
+                                <p class="fw-semibold mb-0">
+                                    <?php if (!empty($supervision['calificacion'])): ?>
+                                        <span class="fw-bold"><?php echo $supervision['calificacion']; ?>/5</span>
+                                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                                            <i class="fas fa-star<?php echo $i <= $supervision['calificacion'] ? '' : '-o'; ?> text-warning" style="font-size:0.85rem;"></i>
+                                        <?php endfor; ?>
+                                    <?php else: ?>
+                                        N/A
+                                    <?php endif; ?>
+                                </p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-muted small fw-semibold text-uppercase">Cumple estándares</label>
+                                <p class="fw-semibold mb-0"><?php echo ($supervision['cumple'] ?? false) ? '✅ Sí' : '❌ No'; ?></p>
+                            </div>
                         </div>
                     </div>
+                    <hr>
+                    <div>
+                        <label class="text-muted small fw-semibold text-uppercase">Observaciones</label>
+                        <p class="mt-2"><?php echo nl2br(htmlspecialchars($supervision['observaciones'] ?? 'Sin observaciones')); ?></p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <!-- Acciones -->
-                    <?php 
-                    $estado = $supervision['estado'] ?? 'PENDIENTE';
-                    if ($estado !== 'APROBADA' && $estado !== 'RECHAZADA'): 
-                    ?>
-                    <div class="card mt-3 border-warning">
-                        <div class="card-header bg-warning">
-                            <h5 class="mb-0">Acciones</h5>
+        <!-- Columna lateral -->
+        <div class="col-lg-4">
+            <!-- Detalle de la orden -->
+            <div class="card border-0">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="fas fa-clipboard-list text-primary me-2"></i> Orden Relacionada
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <?php if (!empty($supervision['orden'])): ?>
+                        <div class="mb-3">
+                            <label class="text-muted small fw-semibold text-uppercase">Título</label>
+                            <p class="fw-semibold mb-0"><?php echo htmlspecialchars($supervision['orden']['titulo']); ?></p>
                         </div>
-                        <div class="card-body">
-                            <a href="/proyecto/supervisor/revisar/<?php echo $supervision['orden_id']; ?>" class="btn btn-primary w-100">
-                                <i class="bi bi-clipboard-check"></i> Completar Revisión
-                            </a>
+                        <div class="mb-3">
+                            <label class="text-muted small fw-semibold text-uppercase">Área</label>
+                            <p class="fw-semibold mb-0"><?php echo $supervision['orden']['area'] ?? 'N/A'; ?></p>
                         </div>
-                    </div>
+                        <div class="mb-3">
+                            <label class="text-muted small fw-semibold text-uppercase">Prioridad</label>
+                            <p class="mb-0">
+                                <?php 
+                                $prioridad = $supervision['orden']['prioridad'] ?? 'Media';
+                                $prioridadColor = match($prioridad) {
+                                    'Urgente' => 'danger',
+                                    'Alta' => 'warning',
+                                    'Media' => 'info',
+                                    'Baja' => 'success',
+                                    default => 'secondary'
+                                };
+                                ?>
+                                <span class="badge bg-<?php echo $prioridadColor; ?> bg-opacity-10 text-<?php echo $prioridadColor; ?>">
+                                    <?php echo $prioridad; ?>
+                                </span>
+                            </p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-muted small fw-semibold text-uppercase">Estado</label>
+                            <p class="mb-0">
+                                <?php 
+                                $estadoOrden = $supervision['orden']['status'] ?? 'PENDIENTE';
+                                $estadoOrdenColor = match($estadoOrden) {
+                                    'CERRADA', 'APROBADA' => 'success',
+                                    'EN_PROCESO' => 'info',
+                                    'CANCELADA', 'RECHAZADA' => 'danger',
+                                    default => 'warning'
+                                };
+                                ?>
+                                <span class="badge bg-<?php echo $estadoOrdenColor; ?> bg-opacity-10 text-<?php echo $estadoOrdenColor; ?>">
+                                    <i class="fas fa-circle me-1" style="font-size:6px;"></i>
+                                    <?php echo $estadoOrden; ?>
+                                </span>
+                            </p>
+                        </div>
+                        <a href="/proyecto/supervisor/ver_orden/<?php echo $supervision['orden_id']; ?>" class="btn btn-info w-100">
+                            <i class="fas fa-eye me-1"></i> Ver Orden
+                        </a>
+                    <?php else: ?>
+                        <p class="text-muted text-center py-3">Orden no disponible</p>
                     <?php endif; ?>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
+
 </div>
+
+<!-- ✅ Estilos -->
+<style>
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

@@ -1,159 +1,191 @@
 <?php
 // controller/ReporteController.php
-// Ubicación: C:\xampp\htdocs\proyecto\controller\ReporteController.php
+// Controlador de reportes - CORREGIDO (sin dependencias externas)
 
-// Incluir el controlador base
-require_once __DIR__ . '/../helpers/Controller.php';
+require_once __DIR__ . '/../model/OrdenTrabajo.php';
+require_once __DIR__ . '/../model/Tecnico.php';
+require_once __DIR__ . '/../helpers/ValidationHelper.php';
+require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-class ReporteController extends Controller {
+class ReporteController {
     
+    private $ordenModel;
+    private $tecnicoModel;
     private $db;
-
+    
     public function __construct() {
-        parent::__construct();
-        
         // Verificar autenticación
-        if (!$this->authHelper->isLoggedIn()) {
+        if (!isset($_SESSION['usuario_id'])) {
             header('Location: /proyecto/auth/login');
             exit;
         }
         
         // Verificar permisos (admin o supervisor)
-        if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
+        $rol = $_SESSION['rol'] ?? '';
+        if ($rol !== 'admin' && $rol !== 'supervisor') {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             header('Location: /proyecto/dashboard');
             exit;
         }
         
-        // Obtener conexión a la base de datos
+        $this->ordenModel = new OrdenTrabajo();
+        $this->tecnicoModel = new Tecnico();
         $this->db = Database::getInstance()->getConnection();
     }
-
+    
     /**
      * Dashboard de reportes
      * URL: /reportes
      */
     public function index() {
-        $fechaInicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
-        $fechaFin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-t');
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        
+        // Validar fechas
+        if (!ValidationHelper::validateDate($fechaInicio) || !ValidationHelper::validateDate($fechaFin)) {
+            $fechaInicio = date('Y-m-01');
+            $fechaFin = date('Y-m-t');
+        }
         
         try {
-            $stats = $this->getEstadisticas($fechaInicio, $fechaFin);
+            // Obtener estadísticas directamente desde el modelo
+            $stats = $this->ordenModel->obtenerEstadisticas();
+            
+            // Obtener datos para gráficos
             $ordenes_por_mes = $this->getOrdenesPorMes($fechaInicio, $fechaFin);
             $ordenes_por_estado = $this->getOrdenesPorEstado($fechaInicio, $fechaFin);
             $ordenes_por_prioridad = $this->getOrdenesPorPrioridad($fechaInicio, $fechaFin);
             $ordenes_por_tecnico = $this->getOrdenesPorTecnico($fechaInicio, $fechaFin);
-            $ordenes_por_planta = $this->getOrdenesPorPlanta($fechaInicio, $fechaFin);
+            $ordenes_por_planta = $this->ordenModel->obtenerCostosPorPlanta($fechaInicio, $fechaFin);
             $costos_por_mes = $this->getCostosPorMes($fechaInicio, $fechaFin);
             
+            // Calcular eficiencia
+            $total = $stats['total'] ?? 0;
+            $completadas = ($stats['cerradas'] ?? 0) + ($stats['aprobadas'] ?? 0);
+            $eficiencia = $total > 0 ? round(($completadas / $total) * 100, 1) : 0;
+            $stats['eficiencia'] = $eficiencia;
+            
         } catch (Exception $e) {
-            error_log("Error en reportes: " . $e->getMessage());
-            $stats = ['total' => 0, 'pendientes' => 0, 'en_proceso' => 0, 'cerradas' => 0, 'canceladas' => 0, 'total_costos' => 0, 'promedio_horas' => 0, 'eficiencia' => 0];
+            error_log("Error en reportes index: " . $e->getMessage());
+            $stats = [
+                'total' => 0, 'pendientes' => 0, 'en_proceso' => 0,
+                'cerradas' => 0, 'canceladas' => 0, 'aprobadas' => 0,
+                'total_costos' => 0, 'promedio_horas' => 0, 'eficiencia' => 0
+            ];
             $ordenes_por_mes = [];
             $ordenes_por_estado = [];
             $ordenes_por_prioridad = [];
             $ordenes_por_tecnico = [];
             $ordenes_por_planta = [];
             $costos_por_mes = [];
-            $_SESSION['error'] = 'Error al cargar los reportes: ' . $e->getMessage();
+            $_SESSION['error'] = 'Error al cargar los reportes';
         }
         
-        $this->view('reportes/index', [
-            'stats' => $stats,
-            'ordenes_por_mes' => $ordenes_por_mes,
-            'ordenes_por_estado' => $ordenes_por_estado,
-            'ordenes_por_prioridad' => $ordenes_por_prioridad,
-            'ordenes_por_tecnico' => $ordenes_por_tecnico,
-            'ordenes_por_planta' => $ordenes_por_planta,
-            'costos_por_mes' => $costos_por_mes,
-            'fechaInicio' => $fechaInicio,
-            'fechaFin' => $fechaFin
-        ]);
+        $seccion = 'reportes';
+        $titulo = 'Reportes';
+        require_once __DIR__ . '/../views/reportes/index.php';
     }
-
+    
     /**
      * Reporte detallado de órdenes
      * URL: /reportes/ordenes
      */
     public function ordenes() {
-        $fechaInicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
-        $fechaFin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-t');
-        $estado = isset($_GET['estado']) ? $_GET['estado'] : '';
-        $prioridad = isset($_GET['prioridad']) ? $_GET['prioridad'] : '';
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        $estado = $_GET['estado'] ?? '';
+        $prioridad = $_GET['prioridad'] ?? '';
+        $tecnico_id = $_GET['tecnico_id'] ?? '';
+        
+        // Validar fechas
+        if (!ValidationHelper::validateDate($fechaInicio) || !ValidationHelper::validateDate($fechaFin)) {
+            $fechaInicio = date('Y-m-01');
+            $fechaFin = date('Y-m-t');
+        }
         
         try {
-            $sql = "SELECT om.*, 
-                           t.nombre as tecnico_nombre,
-                           s.nombre as supervisor_nombre
-                    FROM ordenes_mantenimiento om
-                    LEFT JOIN tecnicos t ON om.tecnico_id = t.id
-                    LEFT JOIN supervisores s ON om.id_supervisor = s.id
-                    WHERE om.fecha_creacion BETWEEN ? AND ?";
-            $params = [$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59'];
+            // Construir filtros
+            $filtros = [
+                'fecha_desde' => $fechaInicio,
+                'fecha_hasta' => $fechaFin,
+                'status' => $estado,
+                'prioridad' => $prioridad,
+                'tecnico_id' => $tecnico_id
+            ];
             
-            if (!empty($estado)) {
-                $sql .= " AND om.status = ?";
-                $params[] = $estado;
-            }
+            // Obtener órdenes
+            $ordenes = $this->ordenModel->obtenerTodos($filtros);
             
-            if (!empty($prioridad)) {
-                $sql .= " AND om.prioridad = ?";
-                $params[] = $prioridad;
-            }
-            
-            $sql .= " ORDER BY om.fecha_creacion DESC";
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Obtener totales
+            // Calcular estadísticas
             $total = count($ordenes);
             $total_costos = array_sum(array_column($ordenes, 'costo_total'));
-            $promedio_horas = $total > 0 ? round(array_sum(array_column($ordenes, 'horas_trabajadas')) / $total, 1) : 0;
+            $total_horas = array_sum(array_column($ordenes, 'horas_trabajadas'));
+            $promedio_horas = $total > 0 ? round($total_horas / $total, 1) : 0;
             
-            // Obtener estados para el filtro
-            $stmtEstados = $this->db->query("SELECT DISTINCT status FROM ordenes_mantenimiento ORDER BY status");
-            $estados = $stmtEstados->fetchAll(PDO::FETCH_COLUMN);
+            // Contar por estado
+            $pendientes = 0;
+            $en_proceso = 0;
+            $completadas = 0;
+            $canceladas = 0;
+            foreach ($ordenes as $orden) {
+                $status = $orden['status'] ?? '';
+                if (in_array($status, ['CERRADA', 'APROBADA', 'EJECUTADA'])) {
+                    $completadas++;
+                } elseif ($status === 'PENDIENTE') {
+                    $pendientes++;
+                } elseif ($status === 'EN_PROCESO') {
+                    $en_proceso++;
+                } elseif (in_array($status, ['CANCELADA', 'RECHAZADA'])) {
+                    $canceladas++;
+                }
+            }
             
-            // Obtener prioridades para el filtro
-            $stmtPrioridades = $this->db->query("SELECT DISTINCT prioridad FROM ordenes_mantenimiento ORDER BY prioridad");
-            $prioridades = $stmtPrioridades->fetchAll(PDO::FETCH_COLUMN);
+            $estadisticas = [
+                'total' => $total,
+                'completadas' => $completadas,
+                'pendientes' => $pendientes,
+                'en_proceso' => $en_proceso,
+                'canceladas' => $canceladas,
+                'costo_total' => $total_costos,
+                'promedio_horas' => $promedio_horas
+            ];
+            
+            // Obtener técnicos para el filtro
+            $tecnicos = $this->tecnicoModel->obtenerTodos();
             
         } catch (Exception $e) {
             error_log("Error en reporte ordenes: " . $e->getMessage());
             $ordenes = [];
-            $total = 0;
-            $total_costos = 0;
-            $promedio_horas = 0;
-            $estados = [];
-            $prioridades = [];
-            $_SESSION['error'] = 'Error al cargar el reporte: ' . $e->getMessage();
+            $estadisticas = [
+                'total' => 0, 'completadas' => 0, 'pendientes' => 0,
+                'en_proceso' => 0, 'canceladas' => 0,
+                'costo_total' => 0, 'promedio_horas' => 0
+            ];
+            $tecnicos = [];
+            $_SESSION['error'] = 'Error al cargar el reporte de órdenes';
         }
         
-        $this->view('reportes/ordenes', [
-            'ordenes' => $ordenes,
-            'total' => $total,
-            'total_costos' => $total_costos,
-            'promedio_horas' => $promedio_horas,
-            'fechaInicio' => $fechaInicio,
-            'fechaFin' => $fechaFin,
-            'estado' => $estado,
-            'prioridad' => $prioridad,
-            'estados' => $estados,
-            'prioridades' => $prioridades
-        ]);
+        $seccion = 'reportes';
+        $titulo = 'Reporte de Órdenes';
+        require_once __DIR__ . '/../views/reportes/ordenes.php';
     }
-
+    
     /**
      * Reporte de técnicos
      * URL: /reportes/tecnicos
      */
     public function tecnicos() {
-        $fechaInicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
-        $fechaFin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-t');
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        
+        // Validar fechas
+        if (!ValidationHelper::validateDate($fechaInicio) || !ValidationHelper::validateDate($fechaFin)) {
+            $fechaInicio = date('Y-m-01');
+            $fechaFin = date('Y-m-t');
+        }
         
         try {
+            // Obtener técnicos con estadísticas
             $sql = "SELECT 
                         t.id,
                         t.nombre,
@@ -161,12 +193,11 @@ class ReporteController extends Controller {
                         t.email,
                         t.telefono,
                         COUNT(om.id) as total_ordenes,
-                        SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) as completadas,
+                        SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas,
                         SUM(CASE WHEN om.status = 'PENDIENTE' THEN 1 ELSE 0 END) as pendientes,
-                        SUM(CASE WHEN om.status = 'EN_PROCESO' THEN 1 ELSE 0 END) as en_proceso,
                         SUM(om.costo_total) as costo_total,
-                        AVG(om.horas_trabajadas) as promedio_horas,
-                        ROUND(SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(om.id), 0), 1) as eficiencia
+                        ROUND(AVG(om.horas_trabajadas), 1) as promedio_horas,
+                        ROUND(SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(om.id), 0), 1) as eficiencia
                     FROM tecnicos t
                     LEFT JOIN ordenes_mantenimiento om ON t.id = om.tecnico_id
                         AND om.fecha_creacion BETWEEN ? AND ?
@@ -176,49 +207,41 @@ class ReporteController extends Controller {
                     ORDER BY eficiencia DESC, total_ordenes DESC";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
+            $stmt->execute([
+                $fechaInicio . ' 00:00:00',
+                $fechaFin . ' 23:59:59'
+            ]);
             $tecnicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $total_ordenes = array_sum(array_column($tecnicos, 'total_ordenes'));
             $total_costos = array_sum(array_column($tecnicos, 'costo_total'));
-            
-            // Estadísticas adicionales
-            $stmtStats = $this->db->prepare("SELECT 
-                                                COUNT(DISTINCT tecnico_id) as total_tecnicos_activos,
-                                                COUNT(*) as total_ordenes_periodo
-                                            FROM ordenes_mantenimiento 
-                                            WHERE fecha_creacion BETWEEN ? AND ?
-                                            AND tecnico_id IS NOT NULL");
-            $stmtStats->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
-            $stats = $stmtStats->fetch(PDO::FETCH_ASSOC);
             
         } catch (Exception $e) {
             error_log("Error en reporte tecnicos: " . $e->getMessage());
             $tecnicos = [];
             $total_ordenes = 0;
             $total_costos = 0;
-            $stats = ['total_tecnicos_activos' => 0, 'total_ordenes_periodo' => 0];
-            $_SESSION['error'] = 'Error al cargar el reporte de técnicos: ' . $e->getMessage();
+            $_SESSION['error'] = 'Error al cargar el reporte de técnicos';
         }
         
-        $this->view('reportes/tecnicos', [
-            'tecnicos' => $tecnicos,
-            'total_ordenes' => $total_ordenes,
-            'total_costos' => $total_costos,
-            'stats' => $stats,
-            'fechaInicio' => $fechaInicio,
-            'fechaFin' => $fechaFin
-        ]);
+        $seccion = 'reportes';
+        $titulo = 'Reporte de Técnicos';
+        require_once __DIR__ . '/../views/reportes/tecnicos.php';
     }
-
+    
     /**
      * Exportar reporte a CSV
      * URL: /reportes/exportar
      */
     public function exportar() {
-        $fechaInicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
-        $fechaFin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-t');
-        $tipo = isset($_GET['tipo']) ? $_GET['tipo'] : 'ordenes';
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        $tipo = $_GET['tipo'] ?? 'ordenes';
+        
+        if (!ValidationHelper::validateDate($fechaInicio) || !ValidationHelper::validateDate($fechaFin)) {
+            $fechaInicio = date('Y-m-01');
+            $fechaFin = date('Y-m-t');
+        }
         
         try {
             if ($tipo === 'ordenes') {
@@ -228,9 +251,6 @@ class ReporteController extends Controller {
                             om.nombre_planta, 
                             om.nombre_area, 
                             om.nombre_equipo,
-                            om.nombre_componente, 
-                            om.tipo_actividad, 
-                            om.tipo_mantenimiento, 
                             om.prioridad, 
                             om.status, 
                             DATE_FORMAT(om.fecha_creacion, '%d/%m/%Y %H:%i') as fecha_creacion,
@@ -245,7 +265,10 @@ class ReporteController extends Controller {
                         WHERE om.fecha_creacion BETWEEN ? AND ?
                         ORDER BY om.fecha_creacion DESC";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
+                $stmt->execute([
+                    $fechaInicio . ' 00:00:00',
+                    $fechaFin . ' 23:59:59'
+                ]);
                 $datos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $nombreArchivo = 'reporte_ordenes_' . date('Y-m-d') . '.csv';
             } else {
@@ -254,11 +277,10 @@ class ReporteController extends Controller {
                             t.especialidad,
                             t.email,
                             COUNT(om.id) as total_ordenes,
-                            SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) as completadas,
-                            SUM(CASE WHEN om.status = 'PENDIENTE' THEN 1 ELSE 0 END) as pendientes,
+                            SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas,
                             SUM(om.costo_total) as costo_total,
                             ROUND(AVG(om.horas_trabajadas), 1) as promedio_horas,
-                            ROUND(SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(om.id), 0), 1) as eficiencia
+                            ROUND(SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(om.id), 0), 1) as eficiencia
                         FROM tecnicos t
                         LEFT JOIN ordenes_mantenimiento om ON t.id = om.tecnico_id
                             AND om.fecha_creacion BETWEEN ? AND ?
@@ -267,14 +289,18 @@ class ReporteController extends Controller {
                         HAVING total_ordenes > 0
                         ORDER BY eficiencia DESC";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
+                $stmt->execute([
+                    $fechaInicio . ' 00:00:00',
+                    $fechaFin . ' 23:59:59'
+                ]);
                 $datos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $nombreArchivo = 'reporte_tecnicos_' . date('Y-m-d') . '.csv';
             }
             
             if (empty($datos)) {
-                $_SESSION['error'] = 'No hay datos para exportar en el período seleccionado';
-                $this->redirect('/proyecto/reportes');
+                $_SESSION['error'] = 'No hay datos para exportar';
+                header('Location: /proyecto/reportes');
+                exit;
             }
             
             // Generar CSV
@@ -284,17 +310,15 @@ class ReporteController extends Controller {
             header('Expires: 0');
             
             $output = fopen('php://output', 'w');
+            fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
             
-            // Agregar BOM para UTF-8
-            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Escribir encabezados
-            $headers = array_keys($datos[0]);
-            fputcsv($output, $headers);
-            
-            // Escribir datos
-            foreach ($datos as $fila) {
-                fputcsv($output, $fila);
+            if (!empty($datos)) {
+                $headers = array_keys($datos[0]);
+                fputcsv($output, $headers);
+                
+                foreach ($datos as $fila) {
+                    fputcsv($output, $fila);
+                }
             }
             
             fclose($output);
@@ -302,19 +326,25 @@ class ReporteController extends Controller {
             
         } catch (Exception $e) {
             error_log("Error al exportar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al exportar el reporte: ' . $e->getMessage();
-            $this->redirect('/proyecto/reportes');
+            $_SESSION['error'] = 'Error al exportar el reporte';
+            header('Location: /proyecto/reportes');
+            exit;
         }
     }
-
+    
     /**
-     * Exportar a PDF (vista previa para impresión)
+     * Vista de impresión (PDF)
      * URL: /reportes/imprimir
      */
     public function imprimir() {
-        $fechaInicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
-        $fechaFin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-t');
-        $tipo = isset($_GET['tipo']) ? $_GET['tipo'] : 'ordenes';
+        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
+        $tipo = $_GET['tipo'] ?? 'ordenes';
+        
+        if (!ValidationHelper::validateDate($fechaInicio) || !ValidationHelper::validateDate($fechaFin)) {
+            $fechaInicio = date('Y-m-01');
+            $fechaFin = date('Y-m-t');
+        }
         
         try {
             if ($tipo === 'ordenes') {
@@ -326,7 +356,10 @@ class ReporteController extends Controller {
                         WHERE om.fecha_creacion BETWEEN ? AND ?
                         ORDER BY om.fecha_creacion DESC";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
+                $stmt->execute([
+                    $fechaInicio . ' 00:00:00',
+                    $fechaFin . ' 23:59:59'
+                ]);
                 $datos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $total_costos = array_sum(array_column($datos, 'costo_total'));
                 $total_ordenes = count($datos);
@@ -335,10 +368,10 @@ class ReporteController extends Controller {
                             t.nombre,
                             t.especialidad,
                             COUNT(om.id) as total_ordenes,
-                            SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) as completadas,
+                            SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas,
                             SUM(om.costo_total) as costo_total,
                             ROUND(AVG(om.horas_trabajadas), 1) as promedio_horas,
-                            ROUND(SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(om.id), 0), 1) as eficiencia
+                            ROUND(SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(om.id), 0), 1) as eficiencia
                         FROM tecnicos t
                         LEFT JOIN ordenes_mantenimiento om ON t.id = om.tecnico_id
                             AND om.fecha_creacion BETWEEN ? AND ?
@@ -347,7 +380,10 @@ class ReporteController extends Controller {
                         HAVING total_ordenes > 0
                         ORDER BY eficiencia DESC";
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
+                $stmt->execute([
+                    $fechaInicio . ' 00:00:00',
+                    $fechaFin . ' 23:59:59'
+                ]);
                 $datos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $total_costos = array_sum(array_column($datos, 'costo_total'));
                 $total_ordenes = array_sum(array_column($datos, 'total_ordenes'));
@@ -359,63 +395,24 @@ class ReporteController extends Controller {
             $total_costos = 0;
             $total_ordenes = 0;
             $_SESSION['error'] = 'Error al generar la vista de impresión';
-            $this->redirect('/proyecto/reportes');
+            header('Location: /proyecto/reportes');
+            exit;
         }
         
-        $this->view('reportes/imprimir', [
-            'datos' => $datos,
-            'tipo' => $tipo,
-            'fechaInicio' => $fechaInicio,
-            'fechaFin' => $fechaFin,
-            'total_costos' => $total_costos,
-            'total_ordenes' => $total_ordenes
-        ]);
+        $seccion = 'reportes';
+        $titulo = 'Imprimir Reporte';
+        require_once __DIR__ . '/../views/reportes/imprimir.php';
     }
-
+    
     // ==========================================
     // MÉTODOS PRIVADOS PARA ESTADÍSTICAS
     // ==========================================
-
-    /**
-     * Obtener estadísticas generales
-     */
-    private function getEstadisticas($fechaInicio, $fechaFin) {
-        $sql = "SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'PENDIENTE' THEN 1 ELSE 0 END) as pendientes,
-                    SUM(CASE WHEN status = 'EN_PROCESO' THEN 1 ELSE 0 END) as en_proceso,
-                    SUM(CASE WHEN status = 'CERRADA' THEN 1 ELSE 0 END) as cerradas,
-                    SUM(CASE WHEN status = 'CANCELADA' THEN 1 ELSE 0 END) as canceladas,
-                    SUM(costo_total) as total_costos,
-                    AVG(horas_trabajadas) as promedio_horas,
-                    ROUND(SUM(CASE WHEN status = 'CERRADA' OR status = 'APROBADA' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0), 1) as eficiencia
-                FROM ordenes_mantenimiento 
-                WHERE fecha_creacion BETWEEN ? AND ?";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        return [
-            'total' => $result['total'] ?? 0,
-            'pendientes' => $result['pendientes'] ?? 0,
-            'en_proceso' => $result['en_proceso'] ?? 0,
-            'cerradas' => $result['cerradas'] ?? 0,
-            'canceladas' => $result['canceladas'] ?? 0,
-            'total_costos' => $result['total_costos'] ?? 0,
-            'promedio_horas' => round($result['promedio_horas'] ?? 0, 1),
-            'eficiencia' => $result['eficiencia'] ?? 0
-        ];
-    }
-
-    /**
-     * Obtener órdenes agrupadas por mes
-     */
+    
     private function getOrdenesPorMes($fechaInicio, $fechaFin) {
         $sql = "SELECT 
                     DATE_FORMAT(fecha_creacion, '%Y-%m') as mes,
                     COUNT(*) as total,
-                    SUM(CASE WHEN status = 'CERRADA' OR status = 'APROBADA' THEN 1 ELSE 0 END) as completadas
+                    SUM(CASE WHEN status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas
                 FROM ordenes_mantenimiento 
                 WHERE fecha_creacion BETWEEN ? AND ?
                 GROUP BY DATE_FORMAT(fecha_creacion, '%Y-%m')
@@ -425,10 +422,7 @@ class ReporteController extends Controller {
         $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-
-    /**
-     * Obtener órdenes agrupadas por estado
-     */
+    
     private function getOrdenesPorEstado($fechaInicio, $fechaFin) {
         $sql = "SELECT 
                     status,
@@ -442,10 +436,7 @@ class ReporteController extends Controller {
         $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-
-    /**
-     * Obtener órdenes agrupadas por prioridad
-     */
+    
     private function getOrdenesPorPrioridad($fechaInicio, $fechaFin) {
         $sql = "SELECT 
                     prioridad,
@@ -466,15 +457,12 @@ class ReporteController extends Controller {
         $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-
-    /**
-     * Obtener órdenes agrupadas por técnico
-     */
+    
     private function getOrdenesPorTecnico($fechaInicio, $fechaFin) {
         $sql = "SELECT 
                     COALESCE(t.nombre, 'Sin Asignar') as tecnico,
                     COUNT(om.id) as total,
-                    SUM(CASE WHEN om.status = 'CERRADA' OR om.status = 'APROBADA' THEN 1 ELSE 0 END) as completadas
+                    SUM(CASE WHEN om.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas
                 FROM ordenes_mantenimiento om
                 LEFT JOIN tecnicos t ON om.tecnico_id = t.id
                 WHERE om.fecha_creacion BETWEEN ? AND ?
@@ -486,29 +474,7 @@ class ReporteController extends Controller {
         $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-
-    /**
-     * Obtener órdenes agrupadas por planta
-     */
-    private function getOrdenesPorPlanta($fechaInicio, $fechaFin) {
-        $sql = "SELECT 
-                    nombre_planta,
-                    COUNT(*) as total
-                FROM ordenes_mantenimiento 
-                WHERE fecha_creacion BETWEEN ? AND ?
-                  AND nombre_planta IS NOT NULL
-                  AND nombre_planta != ''
-                GROUP BY nombre_planta
-                ORDER BY total DESC";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * Obtener costos agrupados por mes
-     */
+    
     private function getCostosPorMes($fechaInicio, $fechaFin) {
         $sql = "SELECT 
                     DATE_FORMAT(fecha_creacion, '%Y-%m') as mes,
@@ -523,3 +489,4 @@ class ReporteController extends Controller {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
+?>

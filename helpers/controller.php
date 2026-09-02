@@ -1,6 +1,7 @@
 <?php
 // helpers/Controller.php
 // Ubicación: C:\xampp\htdocs\proyecto\helpers\Controller.php
+// VERSIÓN CORREGIDA
 
 // Incluir AuthHelper
 require_once __DIR__ . '/AuthHelper.php';
@@ -16,6 +17,26 @@ class Controller {
         }
         
         $this->authHelper = new AuthHelper();
+    }
+
+    /**
+     * Verificar autenticación
+     */
+    protected function requireAuth() {
+        if (!$this->authHelper->isLoggedIn()) {
+            $this->redirect('/auth/login');
+        }
+    }
+
+    /**
+     * Verificar rol específico
+     */
+    protected function requireRole($roles) {
+        $this->requireAuth();
+        if (!$this->authHelper->hasRole($roles)) {
+            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
+            $this->redirect('/dashboard');
+        }
     }
 
     /**
@@ -35,7 +56,7 @@ class Controller {
      * Redirigir a una URL
      */
     protected function redirect($url) {
-        header('Location: ' . $url);
+        header('Location: /proyecto' . $url);
         exit();
     }
 
@@ -73,3 +94,4 @@ class Controller {
         exit();
     }
 }
+?>

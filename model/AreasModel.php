@@ -1,8 +1,8 @@
 <?php
 // model/AreasModel.php
 // Ubicación: C:\xampp\htdocs\proyecto\model\AreasModel.php
+// VERSIÓN CORREGIDA CON FILTRO DE ESTADO
 
-// Incluir la base de datos
 require_once __DIR__ . '/../config/database.php';
 
 class AreasModel
@@ -15,19 +15,32 @@ class AreasModel
     }
 
     /**
-     * Obtener todas las áreas, opcionalmente filtradas por planta
+     * Obtener todas las áreas, opcionalmente filtradas por planta y estado
      */
-    public function obtenerTodos($id_planta = null)
+    public function obtenerTodos($filtros = [])
     {
         try {
             $sql = "SELECT a.*, p.nombre_planta 
                     FROM areas a
-                    JOIN plantas p ON a.id_planta = p.id_planta";
+                    JOIN plantas p ON a.id_planta = p.id_planta
+                    WHERE 1=1";
             $params = [];
 
-            if ($id_planta) {
-                $sql .= " WHERE a.id_planta = ?";
-                $params[] = $id_planta;
+            if (!empty($filtros['id_planta'])) {
+                $sql .= " AND a.id_planta = ?";
+                $params[] = $filtros['id_planta'];
+            }
+
+            if (!empty($filtros['estado'])) {
+                $sql .= " AND a.estado = ?";
+                $params[] = $filtros['estado'];
+            }
+
+            if (!empty($filtros['buscar'])) {
+                $sql .= " AND (a.nombre_area LIKE ? OR a.descripcion LIKE ?)";
+                $buscar = '%' . $filtros['buscar'] . '%';
+                $params[] = $buscar;
+                $params[] = $buscar;
             }
 
             $sql .= " ORDER BY p.nombre_planta, a.nombre_area ASC";
@@ -39,6 +52,14 @@ class AreasModel
             error_log("Error en obtenerTodos (Areas): " . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * Obtener áreas activas
+     */
+    public function obtenerActivos()
+    {
+        return $this->obtenerTodos(['estado' => 'activo']);
     }
 
     /**
@@ -103,7 +124,7 @@ class AreasModel
     /**
      * Obtener áreas con conteo de equipos
      */
-    public function obtenerConConteo($id_planta = null)
+    public function obtenerConConteo($filtros = [])
     {
         try {
             $sql = "SELECT a.*, 
@@ -111,12 +132,18 @@ class AreasModel
                            p.nombre_planta
                     FROM areas a
                     JOIN plantas p ON a.id_planta = p.id_planta
-                    LEFT JOIN equipos e ON a.id_area = e.id_area";
+                    LEFT JOIN equipos e ON a.id_area = e.id_area
+                    WHERE 1=1";
             $params = [];
 
-            if ($id_planta) {
-                $sql .= " WHERE a.id_planta = ?";
-                $params[] = $id_planta;
+            if (!empty($filtros['id_planta'])) {
+                $sql .= " AND a.id_planta = ?";
+                $params[] = $filtros['id_planta'];
+            }
+
+            if (!empty($filtros['estado'])) {
+                $sql .= " AND a.estado = ?";
+                $params[] = $filtros['estado'];
             }
 
             $sql .= " GROUP BY a.id_area 
@@ -137,12 +164,14 @@ class AreasModel
     public function crear($datos)
     {
         try {
-            $sql = "INSERT INTO areas (id_planta, nombre_area, descripcion) VALUES (?, ?, ?)";
+            $sql = "INSERT INTO areas (id_planta, nombre_area, descripcion, estado) 
+                    VALUES (?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $datos['id_planta'],
                 trim($datos['nombre']),
-                $datos['descripcion'] ?? ''
+                $datos['descripcion'] ?? '',
+                $datos['estado'] ?? 'activo'
             ]);
             return $this->db->lastInsertId();
         } catch (PDOException $e) {
@@ -157,16 +186,37 @@ class AreasModel
     public function actualizar($id, $datos)
     {
         try {
-            $sql = "UPDATE areas SET id_planta = ?, nombre_area = ?, descripcion = ? WHERE id_area = ?";
+            $sql = "UPDATE areas SET 
+                        id_planta = ?,
+                        nombre_area = ?,
+                        descripcion = ?,
+                        estado = ?
+                    WHERE id_area = ?";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
                 $datos['id_planta'],
                 trim($datos['nombre']),
                 $datos['descripcion'] ?? '',
+                $datos['estado'] ?? 'activo',
                 $id
             ]);
         } catch (PDOException $e) {
             error_log("Error en actualizar (Areas): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Cambiar estado del área
+     */
+    public function cambiarEstado($id, $estado)
+    {
+        try {
+            $sql = "UPDATE areas SET estado = ? WHERE id_area = ?";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$estado, $id]);
+        } catch (PDOException $e) {
+            error_log("Error en cambiarEstado (Areas): " . $e->getMessage());
             return false;
         }
     }
@@ -183,7 +233,6 @@ class AreasModel
             $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($resultado && $resultado['total'] > 0) {
-                // Tiene equipos asociados, no se puede eliminar
                 return ['error' => true, 'message' => 'No se puede eliminar el área porque tiene equipos asociados'];
             }
 
@@ -228,6 +277,8 @@ class AreasModel
             $sql = "SELECT 
                         COUNT(*) as total_areas,
                         COUNT(DISTINCT id_planta) as total_plantas,
+                        SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activas,
+                        SUM(CASE WHEN estado = 'inactivo' THEN 1 ELSE 0 END) as inactivas,
                         SUM(CASE WHEN (SELECT COUNT(*) FROM equipos WHERE id_area = areas.id_area) > 0 THEN 1 ELSE 0 END) as areas_con_equipos,
                         SUM(CASE WHEN (SELECT COUNT(*) FROM equipos WHERE id_area = areas.id_area) = 0 THEN 1 ELSE 0 END) as areas_sin_equipos
                     FROM areas";
@@ -239,9 +290,12 @@ class AreasModel
             return [
                 'total_areas' => 0,
                 'total_plantas' => 0,
+                'activas' => 0,
+                'inactivas' => 0,
                 'areas_con_equipos' => 0,
                 'areas_sin_equipos' => 0
             ];
         }
     }
 }
+?>

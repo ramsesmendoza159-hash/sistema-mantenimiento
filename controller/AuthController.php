@@ -1,17 +1,23 @@
 <?php
 // controller/AuthController.php
-// Controlador de autenticación
+// Controlador de autenticación - VERSIÓN COMPLETA CON TODOS LOS ROLES
 
 require_once __DIR__ . '/../model/UsuariosModel.php';
 require_once __DIR__ . '/../helpers/ValidationHelper.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/AuthHelper.php';
 
 class AuthController {
     
     private $usuarioModel;
+    private $authHelper;
     
     public function __construct() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         $this->usuarioModel = new UsuariosModel();
+        $this->authHelper = new AuthHelper();
     }
     
     /**
@@ -19,9 +25,9 @@ class AuthController {
      * URL: /login o /auth/login
      */
     public function login() {
-        // Si ya está logueado, redirigir al dashboard
-        if (isset($_SESSION['usuario_id'])) {
-            header('Location: /proyecto/dashboard');
+        // Si ya está logueado, redirigir según rol
+        if ($this->authHelper->isLoggedIn()) {
+            $this->authHelper->redirectByRole();
             exit;
         }
         
@@ -40,25 +46,35 @@ class AuthController {
             exit;
         }
         
-        // Validar token CSRF
-        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
+        // Verificar CSRF
+        if (method_exists('SecurityHelper', 'verifyCSRFToken')) {
+            $token = $_POST['csrf_token'] ?? '';
+            if (!SecurityHelper::verifyCSRFToken($token)) {
+                $_SESSION['error'] = 'Token de seguridad inválido. Por favor, recarga la página.';
+                header('Location: /proyecto/login');
+                exit;
+            }
+        }
+        
+        // Obtener datos del formulario
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        
+        // Validar email
+        if (empty($email)) {
+            $_SESSION['error'] = 'El email es obligatorio';
             header('Location: /proyecto/login');
             exit;
         }
         
-        // Sanitizar y validar datos
-        $email = ValidationHelper::sanitize($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        
-        // Validar email
-        if (!ValidationHelper::validateEmail($email)) {
+        // Validar formato de email
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $_SESSION['error'] = 'El email no es válido';
             header('Location: /proyecto/login');
             exit;
         }
         
-        // Validar contraseña no vacía
+        // Validar contraseña
         if (empty($password)) {
             $_SESSION['error'] = 'La contraseña es obligatoria';
             header('Location: /proyecto/login');
@@ -72,26 +88,25 @@ class AuthController {
             if ($usuario) {
                 // Iniciar sesión
                 $_SESSION['usuario_id'] = $usuario['id'];
-                $_SESSION['nombre'] = SecurityHelper::preventXSS($usuario['nombre']);
-                $_SESSION['email'] = SecurityHelper::preventXSS($usuario['email']);
-                $_SESSION['rol'] = SecurityHelper::preventXSS($usuario['rol']);
+                $_SESSION['nombre'] = htmlspecialchars($usuario['nombre'] ?? 'Usuario', ENT_QUOTES, 'UTF-8');
+                $_SESSION['email'] = htmlspecialchars($usuario['email'] ?? '', ENT_QUOTES, 'UTF-8');
+                $_SESSION['rol'] = $usuario['rol'] ?? 'usuario';
                 $_SESSION['login_time'] = time();
                 
                 // Regenerar ID de sesión por seguridad
                 session_regenerate_id(true);
                 
-                // Redirigir según rol
-                $redirect = $this->getRedirectByRol($usuario['rol']);
-                header('Location: ' . $redirect);
+                // Redirigir según rol usando AuthHelper
+                $this->authHelper->redirectByRole();
                 exit;
             } else {
-                $_SESSION['error'] = 'Credenciales incorrectas';
+                $_SESSION['error'] = 'Credenciales incorrectas. Verifica tu email y contraseña.';
                 header('Location: /proyecto/login');
                 exit;
             }
         } catch (Exception $e) {
             error_log("Error en authenticate: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al iniciar sesión';
+            $_SESSION['error'] = 'Error al iniciar sesión. Intenta nuevamente.';
             header('Location: /proyecto/login');
             exit;
         }
@@ -102,11 +117,12 @@ class AuthController {
      * URL: /logout o /auth/logout
      */
     public function logout() {
-        // Destruir sesión
-        $_SESSION = [];
-        session_destroy();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
-        // Eliminar cookie de sesión
+        $_SESSION = array();
+        
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(
@@ -120,21 +136,10 @@ class AuthController {
             );
         }
         
+        session_destroy();
+        
         header('Location: /proyecto/login');
         exit;
-    }
-    
-    /**
-     * Obtener URL de redirección según rol
-     */
-    private function getRedirectByRol($rol) {
-        $redirects = [
-            'admin' => '/proyecto/admin/dashboard',
-            'supervisor' => '/proyecto/supervisor',
-            'tecnico' => '/proyecto/tecnico',
-            'usuario' => '/proyecto/dashboard'
-        ];
-        return $redirects[$rol] ?? '/proyecto/dashboard';
     }
 }
 ?>

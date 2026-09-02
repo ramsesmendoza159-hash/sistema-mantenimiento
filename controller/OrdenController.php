@@ -1,63 +1,72 @@
 <?php
 // controller/OrdenController.php
-// Controlador de órdenes de trabajo - CORREGIDO
+// Controlador de órdenes - VERSIÓN COMPLETA CON ROLES
 
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 require_once __DIR__ . '/../model/Tecnico.php';
 require_once __DIR__ . '/../model/Supervisor.php';
-require_once __DIR__ . '/../model/Planta.php';
-require_once __DIR__ . '/../model/Area.php';
-require_once __DIR__ . '/../model/Equipo.php';
-require_once __DIR__ . '/../model/Componente.php';
-require_once __DIR__ . '/../helpers/ValidationHelper.php';
+require_once __DIR__ . '/../model/PlantasModel.php';
+require_once __DIR__ . '/../model/AreasModel.php';
+require_once __DIR__ . '/../model/EquiposModel.php';
+require_once __DIR__ . '/../model/ComponentesModel.php';
+require_once __DIR__ . '/../helpers/AuthHelper.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 class OrdenController {
     
-    private OrdenTrabajo $ordenModel;
-    
+    private $ordenModel;
+    private $authHelper;
+
     public function __construct() {
-        if (!isset($_SESSION['usuario_id'])) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        $this->authHelper = new AuthHelper();
+        $this->ordenModel = new OrdenTrabajo();
+    }
+
+    /**
+     * ✅ Lista de órdenes - Con filtro por rol
+     */
+    public function index() {
+        // Verificar autenticación
+        if (!$this->authHelper->isLoggedIn()) {
             header('Location: /proyecto/auth/login');
             exit;
         }
-        $this->ordenModel = new OrdenTrabajo();
-    }
-    
-    /**
-     * Lista de órdenes
-     */
-    public function index() {
-        $filtros = [
-            'status' => $_GET['status'] ?? '',
-            'buscar' => $_GET['buscar'] ?? '',
-            'tecnico_id' => $_GET['tecnico_id'] ?? '',
-            'prioridad' => $_GET['prioridad'] ?? '',
-            'fecha_desde' => $_GET['fecha_desde'] ?? '',
-            'fecha_hasta' => $_GET['fecha_hasta'] ?? ''
-        ];
         
-        // Paginación
-        $pagina = (int)($_GET['pagina'] ?? 1);
-        $porPagina = 20;
-        $offset = ($pagina - 1) * $porPagina;
+        $rol = $this->authHelper->getRole();
         
-        $ordenes = $this->ordenModel->obtenerTodos($filtros, $porPagina, $offset);
+        // Redirigir según rol
+        if ($rol === 'tecnico') {
+            header('Location: /proyecto/tecnico/mis_ordenes');
+            exit;
+        } elseif ($rol === 'supervisor') {
+            // Supervisor ve órdenes para revisar
+            $filtros = ['status' => 'CERRADA'];
+            $ordenes = $this->ordenModel->obtenerTodos($filtros);
+        } else {
+            // Admin ve todas
+            $ordenes = $this->ordenModel->obtenerTodos();
+        }
+        
         $estadisticas = $this->ordenModel->obtenerEstadisticas();
         
-        // Cargar datos para filtros
-        $tecnicoModel = new Tecnico();
-        $tecnicos = $tecnicoModel->obtenerTodos();
-        
-        $seccion = 'ordenes';
         $titulo = 'Gestión de Órdenes';
+        $seccion = 'ordenes';
         require_once __DIR__ . '/../views/ordenes/index.php';
     }
-    
+
     /**
-     * Ver detalle de orden
+     * ✅ Ver detalle de orden - Solo si tiene acceso
      */
     public function ver($id) {
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
+            exit;
+        }
+        
         $orden = $this->ordenModel->obtenerPorId($id);
         
         if (!$orden) {
@@ -66,101 +75,155 @@ class OrdenController {
             exit;
         }
         
+        // ✅ Verificar acceso según rol
+        $rol = $this->authHelper->getRole();
+        $usuarioId = $this->authHelper->getUserId();
+        
+        if ($rol === 'tecnico' && $orden['tecnico_id'] != $usuarioId) {
+            $_SESSION['error'] = 'No tienes acceso a esta orden';
+            header('Location: /proyecto/tecnico/mis_ordenes');
+            exit;
+        }
+        
+        if ($rol === 'supervisor' && $orden['status'] !== 'CERRADA') {
+            $_SESSION['error'] = 'Solo puedes ver órdenes cerradas';
+            header('Location: /proyecto/supervisor/ordenes');
+            exit;
+        }
+        
+        $titulo = 'Detalle de Orden';
         $seccion = 'ordenes';
-        $titulo = 'Detalle de Orden - ' . ($orden['num_om'] ?? '');
         require_once __DIR__ . '/../views/ordenes/ver.php';
     }
-    
+
     /**
-     * Formulario para crear orden
+     * ✅ Crear orden - SOLO ADMIN
      */
     public function crear() {
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
+            exit;
+        }
+        
+        // ✅ Solo admin puede crear
+        if (!$this->authHelper->isAdmin()) {
+            $_SESSION['error'] = 'No tienes permisos para crear órdenes';
+            header('Location: /proyecto/dashboard');
+            exit;
+        }
+        
         // Cargar datos para selects
-        $tecnicoModel = new Tecnico();
-        $tecnicos = $tecnicoModel->obtenerTodos();
+        $tecnicos = (new Tecnico())->obtenerTodos(['estado' => 'activo']);
+        $supervisores = (new Supervisor())->obtenerTodos(['estado' => 'activo']);
+        $plantas = (new PlantasModel())->obtenerTodos();
+        $areas = (new AreasModel())->obtenerTodos();
+        $equipos = (new EquiposModel())->obtenerTodos();
+        $componentes = (new ComponentesModel())->obtenerTodos();
         
-        $supervisorModel = new Supervisor();
-        $supervisores = $supervisorModel->obtenerTodos();
-        
-        $plantaModel = new Planta();
-        $plantas = $plantaModel->obtenerTodos();
-        
-        $areaModel = new Area();
-        $areas = $areaModel->obtenerTodos();
-        
-        $equipoModel = new Equipo();
-        $equipos = $equipoModel->obtenerTodos();
-        
-        $componenteModel = new Componente();
-        $componentes = $componenteModel->obtenerTodos();
-        
+        $titulo = 'Crear Orden';
         $seccion = 'ordenes';
-        $titulo = 'Crear Orden de Trabajo';
         require_once __DIR__ . '/../views/ordenes/crear.php';
     }
-    
+
     /**
-     * Guardar nueva orden
+     * ✅ Guardar orden - SOLO ADMIN
      */
     public function guardar() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/ordenes/crear');
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
-        // Validar CSRF
+        // ✅ Solo admin puede guardar
+        if (!$this->authHelper->isAdmin()) {
+            $_SESSION['error'] = 'No tienes permisos para crear órdenes';
+            header('Location: /proyecto/dashboard');
+            exit;
+        }
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /proyecto/ordenes');
+            exit;
+        }
+        
+        // Verificar CSRF
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
             header('Location: /proyecto/ordenes/crear');
             exit;
         }
         
-        // Generar número de OM si no viene
-        $num_om = $_POST['num_om'] ?? $this->generarNumeroOM();
+        // Validar datos
+        $errores = [];
         
+        if (empty($_POST['titulo'])) {
+            $errores[] = 'El título es obligatorio';
+        }
+        
+        if (empty($_POST['descripcion_mantenimiento']) && empty($_POST['descripcion'])) {
+            $errores[] = 'La descripción del mantenimiento es obligatoria';
+        }
+        
+        if (!empty($errores)) {
+            $_SESSION['errores'] = $errores;
+            header('Location: /proyecto/ordenes/crear');
+            exit;
+        }
+        
+        // Preparar datos
         $datos = [
-            'num_om' => $num_om,
-            'titulo' => ValidationHelper::sanitize($_POST['titulo'] ?? ''),
-            'descripcion_mantenimiento' => ValidationHelper::sanitize($_POST['descripcion_mantenimiento'] ?? ''),
+            'num_om' => $_POST['num_om'] ?? '',
+            'titulo' => $_POST['titulo'] ?? '',
+            'descripcion_mantenimiento' => $_POST['descripcion_mantenimiento'] ?? $_POST['descripcion'] ?? '',
+            'tipo_mantenimiento' => $_POST['tipo_mantenimiento'] ?? 'CORRECTIVO',
+            'tipo_actividad' => $_POST['tipo_actividad'] ?? '',
+            'prioridad' => $_POST['prioridad'] ?? 'Media',
+            'tecnico_id' => $_POST['tecnico_id'] ?? null,
+            'id_supervisor' => $_POST['id_supervisor'] ?? null,
             'id_planta' => $_POST['id_planta'] ?? null,
             'id_area' => $_POST['id_area'] ?? null,
             'id_equipo' => $_POST['id_equipo'] ?? null,
             'id_componente' => $_POST['id_componente'] ?? null,
-            'tecnico_id' => $_POST['tecnico_id'] ?? null,
-            'id_supervisor' => $_POST['id_supervisor'] ?? null,
-            'prioridad' => $_POST['prioridad'] ?? 'Media',
-            'tipo_mantenimiento' => $_POST['tipo_mantenimiento'] ?? 'CORRECTIVO',
-            'tipo_actividad' => $_POST['tipo_actividad'] ?? '',
+            'solicitante' => $_POST['solicitante'] ?? '',
+            'supervisor_solicitante' => $_POST['supervisor_solicitante'] ?? '',
             'fecha_inicio' => $_POST['fecha_inicio'] ?? date('Y-m-d'),
             'fecha_estimada' => $_POST['fecha_estimada'] ?? null,
             'horas_duracion' => $_POST['horas_duracion'] ?? 0,
-            'horas_trabajadas' => $_POST['horas_trabajadas'] ?? 0,
             'tarifa_tecnico' => $_POST['tarifa_tecnico'] ?? 0,
             'costo_repuestos' => $_POST['costo_repuestos'] ?? 0,
-            'solicitante' => ValidationHelper::sanitize($_POST['solicitante'] ?? ''),
-            'supervisor_solicitante' => ValidationHelper::sanitize($_POST['supervisor_solicitante'] ?? ''),
-            'creado_por' => $_SESSION['usuario_id'] ?? 1
+            'status' => 'PENDIENTE',
+            'creado_por' => $this->authHelper->getUserId()
         ];
         
-        $result = $this->ordenModel->crear($datos);
+        $resultado = $this->ordenModel->crear($datos);
         
-        if ($result) {
+        if ($resultado) {
             $_SESSION['mensaje'] = 'Orden creada correctamente';
             $_SESSION['mensaje_tipo'] = 'success';
-            header('Location: /proyecto/ordenes/ver/' . $result);
+            header('Location: /proyecto/ordenes');
         } else {
-            $errores = $_SESSION['errores'] ?? [];
-            $errorMsg = !empty($errores) ? implode(', ', $errores) : ($_SESSION['error'] ?? 'Error desconocido');
-            $_SESSION['error'] = 'Error al crear la orden: ' . $errorMsg;
+            $_SESSION['error'] = 'Error al crear la orden';
             header('Location: /proyecto/ordenes/crear');
         }
         exit;
     }
-    
+
     /**
-     * Formulario para editar orden
+     * ✅ Editar orden - SOLO ADMIN
      */
     public function editar($id) {
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
+            exit;
+        }
+        
+        // ✅ Solo admin puede editar
+        if (!$this->authHelper->isAdmin()) {
+            $_SESSION['error'] = 'No tienes permisos para editar órdenes';
+            header('Location: /proyecto/dashboard');
+            exit;
+        }
+        
         $orden = $this->ordenModel->obtenerPorId($id);
         
         if (!$orden) {
@@ -169,92 +232,34 @@ class OrdenController {
             exit;
         }
         
-        // Cargar datos para selects
-        $tecnicoModel = new Tecnico();
-        $tecnicos = $tecnicoModel->obtenerTodos();
+        // Solo se puede editar si está PENDIENTE
+        if ($orden['status'] !== 'PENDIENTE') {
+            $_SESSION['error'] = 'Solo se pueden editar órdenes en estado PENDIENTE';
+            header('Location: /proyecto/ordenes/ver/' . $id);
+            exit;
+        }
         
-        $supervisorModel = new Supervisor();
-        $supervisores = $supervisorModel->obtenerTodos();
+        $tecnicos = (new Tecnico())->obtenerTodos(['estado' => 'activo']);
+        $supervisores = (new Supervisor())->obtenerTodos(['estado' => 'activo']);
+        $plantas = (new PlantasModel())->obtenerTodos();
+        $areas = (new AreasModel())->obtenerTodos();
+        $equipos = (new EquiposModel())->obtenerTodos();
+        $componentes = (new ComponentesModel())->obtenerTodos();
         
-        $plantaModel = new Planta();
-        $plantas = $plantaModel->obtenerTodos();
-        
-        $areaModel = new Area();
-        $areas = $areaModel->obtenerTodos();
-        
-        $equipoModel = new Equipo();
-        $equipos = $equipoModel->obtenerTodos();
-        
-        $componenteModel = new Componente();
-        $componentes = $componenteModel->obtenerTodos();
-        
+        $titulo = 'Editar Orden';
         $seccion = 'ordenes';
-        $titulo = 'Editar Orden de Trabajo';
         require_once __DIR__ . '/../views/ordenes/editar.php';
     }
-    
+
     /**
-     * Actualizar orden
-     */
-    public function actualizar($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/ordenes/editar/' . $id);
-            exit;
-        }
-        
-        // Validar CSRF
-        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/ordenes/editar/' . $id);
-            exit;
-        }
-        
-        $datos = [
-            'titulo' => ValidationHelper::sanitize($_POST['titulo'] ?? ''),
-            'descripcion_mantenimiento' => ValidationHelper::sanitize($_POST['descripcion_mantenimiento'] ?? ''),
-            'descripcion_realizada' => ValidationHelper::sanitize($_POST['descripcion_realizada'] ?? ''),
-            'id_planta' => $_POST['id_planta'] ?? null,
-            'id_area' => $_POST['id_area'] ?? null,
-            'id_equipo' => $_POST['id_equipo'] ?? null,
-            'id_componente' => $_POST['id_componente'] ?? null,
-            'tecnico_id' => $_POST['tecnico_id'] ?? null,
-            'id_supervisor' => $_POST['id_supervisor'] ?? null,
-            'prioridad' => $_POST['prioridad'] ?? 'Media',
-            'tipo_mantenimiento' => $_POST['tipo_mantenimiento'] ?? 'CORRECTIVO',
-            'tipo_actividad' => $_POST['tipo_actividad'] ?? '',
-            'fecha_inicio' => $_POST['fecha_inicio'] ?? date('Y-m-d'),
-            'fecha_estimada' => $_POST['fecha_estimada'] ?? null,
-            'horas_duracion' => $_POST['horas_duracion'] ?? 0,
-            'horas_trabajadas' => $_POST['horas_trabajadas'] ?? 0,
-            'tarifa_tecnico' => $_POST['tarifa_tecnico'] ?? 0,
-            'costo_repuestos' => $_POST['costo_repuestos'] ?? 0,
-            'solicitante' => ValidationHelper::sanitize($_POST['solicitante'] ?? ''),
-            'supervisor_solicitante' => ValidationHelper::sanitize($_POST['supervisor_solicitante'] ?? ''),
-            'observaciones_tecnico' => ValidationHelper::sanitize($_POST['observaciones_tecnico'] ?? ''),
-            'observaciones_cierre' => ValidationHelper::sanitize($_POST['observaciones_cierre'] ?? ''),
-            'status' => $_POST['status'] ?? 'PENDIENTE',
-            'actualizado_por' => $_SESSION['usuario_id'] ?? 1
-        ];
-        
-        $result = $this->ordenModel->actualizar($id, $datos);
-        
-        if ($result) {
-            $_SESSION['mensaje'] = 'Orden actualizada correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-            header('Location: /proyecto/ordenes/ver/' . $id);
-        } else {
-            $errores = $_SESSION['errores'] ?? [];
-            $errorMsg = !empty($errores) ? implode(', ', $errores) : ($_SESSION['error'] ?? 'Error desconocido');
-            $_SESSION['error'] = 'Error al actualizar la orden: ' . $errorMsg;
-            header('Location: /proyecto/ordenes/editar/' . $id);
-        }
-        exit;
-    }
-    
-    /**
-     * Formulario para cerrar orden
+     * ✅ Cerrar orden - TÉCNICO o ADMIN
      */
     public function cerrar($id) {
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
+            exit;
+        }
+        
         $orden = $this->ordenModel->obtenerPorId($id);
         
         if (!$orden) {
@@ -263,197 +268,158 @@ class OrdenController {
             exit;
         }
         
-        // Verificar que la orden esté en estado EJECUTADA o EN_PROCESO
-        if (!in_array($orden['status'], ['EJECUTADA', 'EN_PROCESO'])) {
-            $_SESSION['error'] = 'La orden debe estar en estado EJECUTADA o EN_PROCESO para cerrarla';
+        // ✅ Verificar permisos: técnico asignado o admin
+        $rol = $this->authHelper->getRole();
+        $usuarioId = $this->authHelper->getUserId();
+        
+        if ($rol === 'tecnico' && $orden['tecnico_id'] != $usuarioId) {
+            $_SESSION['error'] = 'No tienes permisos para cerrar esta orden';
+            header('Location: /proyecto/tecnico/mis_ordenes');
+            exit;
+        }
+        
+        if (!in_array($orden['status'], ['PENDIENTE', 'EN_PROCESO', 'EJECUTADA'])) {
+            $_SESSION['error'] = 'La orden no se puede cerrar en su estado actual';
             header('Location: /proyecto/ordenes/ver/' . $id);
             exit;
         }
         
+        $titulo = 'Cerrar Orden';
         $seccion = 'ordenes';
-        $titulo = 'Cerrar Orden de Trabajo';
         require_once __DIR__ . '/../views/ordenes/cerrar.php';
     }
-    
+
     /**
-     * Procesar cierre de orden
+     * ✅ Procesar cierre - TÉCNICO o ADMIN
      */
     public function procesarCierre($id) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/ordenes/cerrar/' . $id);
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
             exit;
         }
         
-        // Validar CSRF
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /proyecto/ordenes');
+            exit;
+        }
+        
+        $orden = $this->ordenModel->obtenerPorId($id);
+        
+        if (!$orden) {
+            $_SESSION['error'] = 'Orden no encontrada';
+            header('Location: /proyecto/ordenes');
+            exit;
+        }
+        
+        // Verificar permisos
+        $rol = $this->authHelper->getRole();
+        $usuarioId = $this->authHelper->getUserId();
+        
+        if ($rol === 'tecnico' && $orden['tecnico_id'] != $usuarioId) {
+            $_SESSION['error'] = 'No tienes permisos para cerrar esta orden';
+            header('Location: /proyecto/tecnico/mis_ordenes');
+            exit;
+        }
+        
+        // Verificar CSRF
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
             header('Location: /proyecto/ordenes/cerrar/' . $id);
             exit;
         }
         
+        // Validar datos
+        if (empty($_POST['descripcion_realizada'])) {
+            $_SESSION['error'] = 'La descripción del trabajo realizado es obligatoria';
+            header('Location: /proyecto/ordenes/cerrar/' . $id);
+            exit;
+        }
+        
+        if (empty($_POST['horas_trabajadas']) || $_POST['horas_trabajadas'] <= 0) {
+            $_SESSION['error'] = 'Las horas trabajadas son obligatorias';
+            header('Location: /proyecto/ordenes/cerrar/' . $id);
+            exit;
+        }
+        
         $datos = [
-            'descripcion_realizada' => ValidationHelper::sanitize($_POST['descripcion_realizada'] ?? ''),
-            'pasos_ejecutados' => ValidationHelper::sanitize($_POST['pasos_ejecutados'] ?? ''),
+            'descripcion_realizada' => $_POST['descripcion_realizada'] ?? '',
+            'pasos_ejecutados' => $_POST['pasos_ejecutados'] ?? '',
             'horas_trabajadas' => (float)($_POST['horas_trabajadas'] ?? 0),
             'tarifa_tecnico' => (float)($_POST['tarifa_tecnico'] ?? 0),
             'costo_repuestos' => (float)($_POST['costo_repuestos'] ?? 0),
-            'observaciones_tecnico' => ValidationHelper::sanitize($_POST['observaciones_tecnico'] ?? ''),
-            'observaciones_cierre' => ValidationHelper::sanitize($_POST['observaciones_cierre'] ?? ''),
             'foto_evidencia' => $_POST['foto_evidencia'] ?? '',
             'firma_tecnico' => $_POST['firma_tecnico'] ?? '',
-            'actualizado_por' => $_SESSION['usuario_id'] ?? 1
+            'observaciones_tecnico' => $_POST['observaciones_tecnico'] ?? '',
+            'observaciones_cierre' => $_POST['observaciones_cierre'] ?? '',
+            'actualizado_por' => $usuarioId
         ];
         
-        $result = $this->ordenModel->cerrar($id, $datos);
+        $resultado = $this->ordenModel->cerrar($id, $datos);
         
-        if ($result) {
-            $_SESSION['mensaje'] = 'Orden cerrada correctamente';
+        if ($resultado) {
+            $_SESSION['mensaje'] = 'Orden cerrada correctamente. Pendiente de revisión por supervisor.';
             $_SESSION['mensaje_tipo'] = 'success';
-            header('Location: /proyecto/ordenes/ver/' . $id);
+            
+            if ($rol === 'tecnico') {
+                header('Location: /proyecto/tecnico/mis_ordenes');
+            } else {
+                header('Location: /proyecto/ordenes');
+            }
         } else {
-            $_SESSION['error'] = 'Error al cerrar la orden: ' . ($_SESSION['error'] ?? '');
+            $_SESSION['error'] = 'Error al cerrar la orden';
             header('Location: /proyecto/ordenes/cerrar/' . $id);
         }
         exit;
     }
-    
+
     /**
-     * Eliminar orden
+     * ✅ Cambiar estado - SOLO ADMIN o SUPERVISOR
      */
-    public function eliminar($id) {
+    public function cambiarEstado() {
+        if (!$this->authHelper->isLoggedIn()) {
+            header('Location: /proyecto/auth/login');
+            exit;
+        }
+        
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: /proyecto/ordenes');
             exit;
         }
         
-        // Validar CSRF
+        // Verificar permisos: admin o supervisor
+        if (!$this->authHelper->isAdmin() && !$this->authHelper->isSupervisor()) {
+            $_SESSION['error'] = 'No tienes permisos para cambiar estados';
+            header('Location: /proyecto/dashboard');
+            exit;
+        }
+        
+        $id = $_POST['id'] ?? 0;
+        $estado = $_POST['estado'] ?? '';
+        $observaciones = $_POST['observaciones'] ?? '';
+        
+        if (empty($id) || empty($estado)) {
+            $_SESSION['error'] = 'Datos incompletos';
+            header('Location: /proyecto/ordenes');
+            exit;
+        }
+        
+        // Verificar CSRF
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
             $_SESSION['error'] = 'Token de seguridad inválido';
             header('Location: /proyecto/ordenes');
             exit;
         }
         
-        $result = $this->ordenModel->eliminar($id);
+        $resultado = $this->ordenModel->cambiarEstado($id, $estado, $observaciones);
         
-        if ($result) {
-            $_SESSION['mensaje'] = 'Orden eliminada correctamente';
+        if ($resultado) {
+            $_SESSION['mensaje'] = 'Estado actualizado correctamente';
             $_SESSION['mensaje_tipo'] = 'success';
         } else {
-            $_SESSION['error'] = 'Error al eliminar la orden';
+            $_SESSION['error'] = 'Error al cambiar el estado';
         }
         
-        header('Location: /proyecto/ordenes');
-        exit;
-    }
-    
-    /**
-     * Estadísticas de órdenes
-     */
-    public function estadisticas() {
-        $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
-        $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
-        
-        $estadisticas = $this->ordenModel->obtenerEstadisticas();
-        
-        // Obtener prioridades
-        $db = Database::getInstance()->getConnection();
-        $sql = "SELECT 
-                    SUM(CASE WHEN prioridad = 'Alta' THEN 1 ELSE 0 END) as alta,
-                    SUM(CASE WHEN prioridad = 'Media' THEN 1 ELSE 0 END) as media,
-                    SUM(CASE WHEN prioridad = 'Baja' THEN 1 ELSE 0 END) as baja
-                FROM ordenes_mantenimiento";
-        $stmt = $db->prepare($sql);
-        $stmt->execute();
-        $prioridades = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Evolución mensual
-        $sql = "SELECT 
-                    DATE_FORMAT(fecha_creacion, '%Y-%m') as mes,
-                    COUNT(*) as total
-                FROM ordenes_mantenimiento
-                WHERE YEAR(fecha_creacion) = YEAR(CURDATE())
-                GROUP BY DATE_FORMAT(fecha_creacion, '%Y-%m')
-                ORDER BY mes ASC";
-        $stmt = $db->prepare($sql);
-        $stmt->execute();
-        $evolucion_mensual = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Rendimiento por técnico
-        $sql = "SELECT 
-                    t.nombre,
-                    COUNT(o.id) as total,
-                    SUM(CASE WHEN o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas
-                FROM ordenes_mantenimiento o
-                LEFT JOIN tecnicos t ON o.tecnico_id = t.id
-                WHERE o.tecnico_id IS NOT NULL
-                GROUP BY o.tecnico_id";
-        $stmt = $db->prepare($sql);
-        $stmt->execute();
-        $rendimiento_tecnicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        $seccion = 'ordenes';
-        $titulo = 'Estadísticas de Órdenes';
-        require_once __DIR__ . '/../views/ordenes/estadisticas.php';
-    }
-    
-    /**
-     * Generar número de OM automático
-     */
-    private function generarNumeroOM() {
-        $anio = date('Y');
-        $mes = date('m');
-        $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE YEAR(fecha_creacion) = ? AND MONTH(fecha_creacion) = ?";
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$anio, $mes]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $numero = ($result['total'] ?? 0) + 1;
-        return "OT-" . $anio . "-" . $mes . "-" . str_pad($numero, 4, '0', STR_PAD_LEFT);
-    }
-    
-    /**
-     * Cambiar estado de la orden (API para AJAX)
-     */
-    public function cambiarEstado() {
-        // Solo acepta POST
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['error' => 'Método no permitido']);
-            exit;
-        }
-        
-        // Verificar autenticación
-        if (!isset($_SESSION['usuario_id'])) {
-            http_response_code(401);
-            echo json_encode(['error' => 'No autenticado']);
-            exit;
-        }
-        
-        // Validar CSRF
-        if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Token inválido']);
-            exit;
-        }
-        
-        $id = (int)($_POST['id'] ?? 0);
-        $estado = ValidationHelper::sanitize($_POST['estado'] ?? '');
-        $observaciones = ValidationHelper::sanitize($_POST['observaciones'] ?? '');
-        
-        if ($id <= 0 || empty($estado)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Datos incompletos']);
-            exit;
-        }
-        
-        $result = $this->ordenModel->cambiarEstado($id, $estado, $observaciones);
-        
-        if ($result) {
-            echo json_encode(['success' => true, 'mensaje' => 'Estado actualizado correctamente']);
-        } else {
-            http_response_code(500);
-            echo json_encode(['error' => 'Error al actualizar el estado']);
-        }
+        header('Location: /proyecto/ordenes/ver/' . $id);
         exit;
     }
 }

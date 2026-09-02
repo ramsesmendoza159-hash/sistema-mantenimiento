@@ -1,35 +1,43 @@
 <?php
 // model/Tecnico.php
-// Modelo de técnicos - CORREGIDO
+// Modelo de Técnicos - VERSIÓN ACTUALIZADA CON TARIFA
 
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../helpers/HashHelper.php';
-require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/ValidationHelper.php';
 
 class Tecnico {
     private $db;
+    private $lastError;
     
     public function __construct() {
-        $this->db = Database::getInstance()->getConnection();
+        try {
+            $this->db = Database::getInstance()->getConnection();
+        } catch (Exception $e) {
+            error_log("Error al conectar a la base de datos: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function getLastError() {
+        return $this->lastError;
     }
     
     /**
-     * Obtener todos los técnicos con filtros
+     * Obtener todos los técnicos con filtros - ✅ CON TARIFA
      */
     public function obtenerTodos($filtros = []) {
         try {
-            $sql = "SELECT * FROM tecnicos WHERE 1=1";
+            $sql = "SELECT id, nombre, email, telefono, especialidad, tarifa, estado, fecha_creacion 
+                    FROM tecnicos WHERE 1=1";
             $params = [];
             
             if (!empty($filtros['estado'])) {
                 $sql .= " AND estado = ?";
-                $params[] = SecurityHelper::sanitizeForDB($filtros['estado']);
+                $params[] = $filtros['estado'];
             }
             
             if (!empty($filtros['buscar'])) {
                 $sql .= " AND (nombre LIKE ? OR email LIKE ? OR especialidad LIKE ?)";
-                $buscar = '%' . SecurityHelper::sanitizeForDB($filtros['buscar']) . '%';
+                $buscar = '%' . $filtros['buscar'] . '%';
                 $params[] = $buscar;
                 $params[] = $buscar;
                 $params[] = $buscar;
@@ -37,175 +45,121 @@ class Tecnico {
             
             if (!empty($filtros['especialidad'])) {
                 $sql .= " AND especialidad = ?";
-                $params[] = SecurityHelper::sanitizeForDB($filtros['especialidad']);
+                $params[] = $filtros['especialidad'];
             }
             
             $sql .= " ORDER BY nombre ASC";
+            
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
         } catch (PDOException $e) {
-            error_log("Error en obtenerTodos (Tecnico): " . $e->getMessage());
+            error_log("Error en Tecnico::obtenerTodos: " . $e->getMessage());
             return [];
         }
     }
     
     /**
-     * Obtener técnico por ID
+     * Obtener técnico por ID - ✅ CON TARIFA
      */
     public function obtenerPorId($id) {
         try {
-            $sql = "SELECT * FROM tecnicos WHERE id = ?";
+            $sql = "SELECT id, nombre, email, telefono, especialidad, tarifa, estado, fecha_creacion 
+                    FROM tecnicos WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log("Error en obtenerPorId (Tecnico): " . $e->getMessage());
-            return false;
+            error_log("Error en Tecnico::obtenerPorId: " . $e->getMessage());
+            return null;
         }
     }
     
     /**
-     * Obtener técnico por email
-     */
-    public function obtenerPorEmail($email) {
-        try {
-            $sql = "SELECT * FROM tecnicos WHERE email = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([SecurityHelper::sanitizeForDB($email)]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerPorEmail (Tecnico): " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Verificar si email existe
-     */
-    public function emailExiste($email, $excluirId = null) {
-        try {
-            $sql = "SELECT COUNT(*) as total FROM tecnicos WHERE email = ?";
-            $params = [SecurityHelper::sanitizeForDB($email)];
-            
-            if ($excluirId !== null) {
-                $sql .= " AND id != ?";
-                $params[] = (int)$excluirId;
-            }
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            return ($result['total'] ?? 0) > 0;
-        } catch (PDOException $e) {
-            error_log("Error en emailExiste (Tecnico): " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Obtener estadísticas
-     */
-    public function obtenerEstadisticas() {
-        try {
-            $sql = "SELECT 
-                        COUNT(*) as total,
-                        SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos,
-                        SUM(CASE WHEN estado = 'inactivo' THEN 1 ELSE 0 END) as inactivos,
-                        COUNT(DISTINCT especialidad) as especialidades
-                    FROM tecnicos";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerEstadisticas (Tecnico): " . $e->getMessage());
-            return ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'especialidades' => 0];
-        }
-    }
-    
-    /**
-     * Crear técnico
+     * Crear nuevo técnico - ✅ CON TARIFA
      */
     public function crear($datos) {
         try {
-            // Validar datos
-            if (empty($datos['nombre']) || empty($datos['email']) || empty($datos['password'])) {
+            // Validar datos requeridos
+            if (empty($datos['nombre'])) {
+                $this->lastError = 'El nombre es obligatorio';
+                return false;
+            }
+            if (empty($datos['email'])) {
+                $this->lastError = 'El email es obligatorio';
+                return false;
+            }
+            if (empty($datos['password'])) {
+                $this->lastError = 'La contraseña es obligatoria';
                 return false;
             }
             
-            $hash = HashHelper::encrypt($datos['password']);
-            
-            $sql = "INSERT INTO tecnicos (nombre, email, password_hash, especialidad, tarifa, telefono, estado) 
+            // ✅ CORREGIDO: Incluir tarifa en el INSERT
+            $sql = "INSERT INTO tecnicos (nombre, email, telefono, especialidad, tarifa, password_hash, estado) 
                     VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                SecurityHelper::sanitizeForDB($datos['nombre']),
-                SecurityHelper::sanitizeForDB($datos['email']),
-                $hash,
-                SecurityHelper::sanitizeForDB($datos['especialidad'] ?? ''),
-                (float)($datos['tarifa'] ?? 0),
-                SecurityHelper::sanitizeForDB($datos['telefono'] ?? ''),
-                SecurityHelper::sanitizeForDB($datos['estado'] ?? 'activo')
+            $result = $stmt->execute([
+                $datos['nombre'],
+                $datos['email'],
+                $datos['telefono'] ?? '',
+                $datos['especialidad'] ?? '',
+                $datos['tarifa'] ?? 0,  // ✅ TARIFA INCLUIDA
+                $datos['password'],
+                $datos['estado'] ?? 'activo'
             ]);
-            return $this->db->lastInsertId();
+            
+            if ($result) {
+                return $this->db->lastInsertId();
+            } else {
+                $this->lastError = 'Error al ejecutar la inserción';
+                error_log("Error en crear: " . print_r($stmt->errorInfo(), true));
+                return false;
+            }
+            
         } catch (PDOException $e) {
-            error_log("Error en crear (Tecnico): " . $e->getMessage());
+            error_log("Error en Tecnico::crear: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
             return false;
         }
     }
     
     /**
-     * Actualizar técnico
+     * Actualizar técnico - ✅ CON TARIFA
      */
     public function actualizar($id, $datos) {
         try {
+            // ✅ CORREGIDO: Incluir tarifa en el UPDATE
             $sql = "UPDATE tecnicos SET 
                         nombre = ?,
                         email = ?,
+                        telefono = ?,
                         especialidad = ?,
                         tarifa = ?,
-                        telefono = ?,
-                        estado = ?,
-                        fecha_actualizacion = NOW()
-                    WHERE id = ?";
+                        estado = ?";
             $params = [
-                SecurityHelper::sanitizeForDB($datos['nombre']),
-                SecurityHelper::sanitizeForDB($datos['email']),
-                SecurityHelper::sanitizeForDB($datos['especialidad'] ?? ''),
-                (float)($datos['tarifa'] ?? 0),
-                SecurityHelper::sanitizeForDB($datos['telefono'] ?? ''),
-                SecurityHelper::sanitizeForDB($datos['estado'] ?? 'activo'),
-                (int)$id
+                $datos['nombre'],
+                $datos['email'],
+                $datos['telefono'] ?? '',
+                $datos['especialidad'] ?? '',
+                $datos['tarifa'] ?? 0,  // ✅ TARIFA INCLUIDA
+                $datos['estado'] ?? 'activo'
             ];
             
-            // Si se proporcionó contraseña
-            if (!empty($datos['password'])) {
-                $hash = HashHelper::encrypt($datos['password']);
-                $sql = str_replace('WHERE id = ?', 'password_hash = ?, WHERE id = ?', $sql);
-                array_splice($params, 0, 0, [$hash]);
+            // Si se proporcionó nueva contraseña
+            if (isset($datos['password']) && !empty($datos['password'])) {
+                $sql .= ", password_hash = ?";
+                $params[] = $datos['password'];
             }
+            
+            $sql .= " WHERE id = ?";
+            $params[] = $id;
             
             $stmt = $this->db->prepare($sql);
             return $stmt->execute($params);
+            
         } catch (PDOException $e) {
-            error_log("Error en actualizar (Tecnico): " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Cambiar estado
-     */
-    public function cambiarEstado($id, $estado) {
-        try {
-            $sql = "UPDATE tecnicos SET estado = ?, fecha_actualizacion = NOW() WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
-                SecurityHelper::sanitizeForDB($estado),
-                (int)$id
-            ]);
-        } catch (PDOException $e) {
-            error_log("Error en cambiarEstado (Tecnico): " . $e->getMessage());
+            error_log("Error en Tecnico::actualizar: " . $e->getMessage());
             return false;
         }
     }
@@ -215,38 +169,128 @@ class Tecnico {
      */
     public function eliminar($id) {
         try {
-            // Verificar si tiene órdenes asignadas
-            $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (($result['total'] ?? 0) > 0) {
-                $_SESSION['error'] = 'No se puede eliminar: tiene órdenes asignadas';
-                return false;
-            }
-            
             $sql = "DELETE FROM tecnicos WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([(int)$id]);
+            return $stmt->execute([$id]);
         } catch (PDOException $e) {
-            error_log("Error en eliminar (Tecnico): " . $e->getMessage());
+            error_log("Error en Tecnico::eliminar: " . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * Actualizar contraseña
+     * Verificar si el email ya existe
      */
-    public function actualizarPassword($id, $password) {
+    public function emailExiste($email, $excluirId = null) {
         try {
-            $hash = HashHelper::encrypt($password);
-            $sql = "UPDATE tecnicos SET password_hash = ?, fecha_actualizacion = NOW() WHERE id = ?";
+            $sql = "SELECT id FROM tecnicos WHERE email = ?";
+            $params = [$email];
+            
+            if ($excluirId) {
+                $sql .= " AND id != ?";
+                $params[] = $excluirId;
+            }
+            
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$hash, (int)$id]);
+            $stmt->execute($params);
+            return $stmt->fetch() !== false;
+            
         } catch (PDOException $e) {
-            error_log("Error en actualizarPassword (Tecnico): " . $e->getMessage());
+            error_log("Error en Tecnico::emailExiste: " . $e->getMessage());
             return false;
+        }
+    }
+    
+    /**
+     * Cambiar estado del técnico
+     */
+    public function cambiarEstado($id, $estado) {
+        try {
+            $sql = "UPDATE tecnicos SET estado = ? WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$estado, $id]);
+        } catch (PDOException $e) {
+            error_log("Error en Tecnico::cambiarEstado: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Obtener estadísticas de técnicos
+     */
+    public function obtenerEstadisticas() {
+        try {
+            $sql = "SELECT 
+                        COUNT(*) as total,
+                        SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos,
+                        SUM(CASE WHEN estado = 'inactivo' THEN 1 ELSE 0 END) as inactivos
+                    FROM tecnicos";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return [
+                'total' => (int)($result['total'] ?? 0),
+                'activos' => (int)($result['activos'] ?? 0),
+                'inactivos' => (int)($result['inactivos'] ?? 0)
+            ];
+            
+        } catch (PDOException $e) {
+            error_log("Error en Tecnico::obtenerEstadisticas: " . $e->getMessage());
+            return ['total' => 0, 'activos' => 0, 'inactivos' => 0];
+        }
+    }
+    
+    /**
+     * Obtener lista de especialidades únicas
+     */
+    public function obtenerEspecialidades() {
+        try {
+            $sql = "SELECT DISTINCT especialidad 
+                    FROM tecnicos 
+                    WHERE especialidad != '' AND especialidad IS NOT NULL
+                    ORDER BY especialidad ASC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            return $result ?: [];
+            
+        } catch (PDOException $e) {
+            error_log("Error en Tecnico::obtenerEspecialidades: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Obtener técnicos activos - ✅ CON TARIFA
+     */
+    public function obtenerActivos() {
+        try {
+            $sql = "SELECT id, nombre, email, telefono, especialidad, tarifa 
+                    FROM tecnicos WHERE estado = 'activo' ORDER BY nombre ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en Tecnico::obtenerActivos: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Obtener técnicos por especialidad - ✅ CON TARIFA
+     */
+    public function obtenerPorEspecialidad($especialidad) {
+        try {
+            $sql = "SELECT id, nombre, email, telefono, especialidad, tarifa 
+                    FROM tecnicos WHERE especialidad = ? AND estado = 'activo' ORDER BY nombre ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$especialidad]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error en Tecnico::obtenerPorEspecialidad: " . $e->getMessage());
+            return [];
         }
     }
 }

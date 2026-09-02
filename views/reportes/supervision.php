@@ -1,6 +1,20 @@
 <?php
 // views/reportes/supervision.php
-// Ubicación: C:\xampp\htdocs\proyecto\views\reportes\supervision.php
+// Reporte de Supervisión - VERSIÓN CORREGIDA CON ASTEROADMIN
+
+// ✅ Verificar autenticación
+require_once __DIR__ . '/../../helpers/SecurityHelper.php';
+
+if (!SecurityHelper::verificarSesion()) {
+    header('Location: /proyecto/auth/login');
+    exit;
+}
+
+if (!SecurityHelper::verificarRol(['admin', 'supervisor'])) {
+    $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
+    header('Location: /proyecto/dashboard');
+    exit;
+}
 
 // Asegurar que las variables existan
 $supervisiones = $supervisiones ?? [];
@@ -12,184 +26,315 @@ $estadisticas = $estadisticas ?? [
     'calificacion_promedio' => 0
 ];
 
+// Validar fechas (si vienen de GET)
+$fecha_inicio = $_GET['fecha_inicio'] ?? '';
+$fecha_fin = $_GET['fecha_fin'] ?? '';
+$estado_filtro = $_GET['estado'] ?? '';
+
 $titulo = "Reporte de Supervisión";
 $seccion = "reportes";
+
 include_once __DIR__ . '/../layouts/header.php';
+include_once __DIR__ . '/../layouts/sidebar.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include_once __DIR__ . '/../layouts/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2"><i class="fas fa-clipboard-check"></i> Reporte de Supervisión</h1>
-                <div>
-                    <button class="btn btn-success me-2" onclick="exportarExcel()">
-                        <i class="fas fa-file-excel"></i> Exportar Excel
-                    </button>
-                    <button class="btn btn-danger" onclick="exportarPDF()">
-                        <i class="fas fa-file-pdf"></i> Exportar PDF
-                    </button>
-                </div>
-            </div>
+<div class="container-fluid px-0">
 
-            <!-- Filtros -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form id="filtrosForm" class="row g-3">
-                        <div class="col-md-3">
-                            <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
-                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="fecha_fin" class="form-label">Fecha Fin</label>
-                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="estado" class="form-label">Estado</label>
-                            <select class="form-select" id="estado" name="estado">
-                                <option value="">Todos</option>
-                                <option value="APROBADA">Aprobada</option>
-                                <option value="RECHAZADA">Rechazada</option>
-                                <option value="PENDIENTE">Pendiente</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary me-2">Filtrar</button>
-                            <button type="reset" class="btn btn-secondary">Limpiar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Estadísticas -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card text-white bg-primary">
-                        <div class="card-body">
-                            <h6 class="card-title">Total Supervisiones</h6>
-                            <p class="card-text display-6"><?php echo $estadisticas['total'] ?? 0; ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-white bg-success">
-                        <div class="card-body">
-                            <h6 class="card-title">Aprobadas</h6>
-                            <p class="card-text display-6"><?php echo $estadisticas['aprobadas'] ?? 0; ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-white bg-danger">
-                        <div class="card-body">
-                            <h6 class="card-title">Rechazadas</h6>
-                            <p class="card-text display-6"><?php echo $estadisticas['rechazadas'] ?? 0; ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-white bg-info">
-                        <div class="card-body">
-                            <h6 class="card-title">Calif. Promedio</h6>
-                            <p class="card-text display-6"><?php echo number_format($estadisticas['calificacion_promedio'] ?? 0, 1); ?></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabla de supervisiones -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Orden</th>
-                                    <th>Supervisor</th>
-                                    <th>Técnico</th>
-                                    <th>Calificación</th>
-                                    <th>Estado</th>
-                                    <th>Cumple</th>
-                                    <th>Fecha</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($supervisiones)): ?>
-                                    <tr>
-                                        <td colspan="8" class="text-center py-4">
-                                            <i class="fas fa-info-circle"></i> No hay supervisiones registradas
-                                        </td>
-                                    </tr>
-                                <?php else: ?>
-                                    <?php foreach ($supervisiones as $item): ?>
-                                        <tr>
-                                            <td><?php echo $item['id']; ?></td>
-                                            <td>#<?php echo $item['orden_id']; ?></td>
-                                            <td><?php echo htmlspecialchars($item['supervisor'] ?? 'N/A'); ?></td>
-                                            <td><?php echo htmlspecialchars($item['tecnico'] ?? 'N/A'); ?></td>
-                                            <td>
-                                                <?php if ($item['calificacion']): ?>
-                                                    <?php echo $item['calificacion']; ?>/5
-                                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                        <i class="fas fa-star<?php echo $i <= $item['calificacion'] ? '' : '-o'; ?> text-warning"></i>
-                                                    <?php endfor; ?>
-                                                <?php else: ?>
-                                                    N/A
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?php
-                                                $estadoClases = [
-                                                    'APROBADA' => 'success',
-                                                    'RECHAZADA' => 'danger',
-                                                    'PENDIENTE' => 'warning'
-                                                ];
-                                                $estadoClase = $estadoClases[$item['estado'] ?? 'PENDIENTE'] ?? 'secondary';
-                                                ?>
-                                                <span class="badge bg-<?php echo $estadoClase; ?>">
-                                                    <?php echo $item['estado'] ?? 'PENDIENTE'; ?>
-                                                </span>
-                                            </td>
-                                            <td><?php echo ($item['cumple'] ?? 0) ? '✅ Sí' : '❌ No'; ?></td>
-                                            <td><?php echo isset($item['fecha_creacion']) ? date('d/m/Y', strtotime($item['fecha_creacion'])) : '-'; ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-2 text-muted small">
-                        <i class="fas fa-list"></i> Mostrando <?php echo count($supervisiones); ?> registro(s)
-                    </div>
-                </div>
-            </div>
-        </main>
+    <!-- ✅ Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold">
+                <i class="fas fa-clipboard-check text-primary me-2"></i>Reporte de Supervisión
+            </h4>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-calendar-alt me-1"></i> 
+                <?= date('d/m/Y H:i') ?>
+                <span class="mx-2">|</span>
+                <i class="fas fa-list me-1"></i> 
+                <?= count($supervisiones) ?> registros
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success btn-sm" onclick="exportarReporte('excel')">
+                <i class="fas fa-file-excel me-1"></i> Excel
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="exportarReporte('pdf')">
+                <i class="fas fa-file-pdf me-1"></i> PDF
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Imprimir
+            </button>
+        </div>
     </div>
+
+    <!-- ✅ Filtros -->
+    <div class="card border-0 mb-4">
+        <div class="card-body">
+            <form id="filtrosForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Fecha Inicio</label>
+                    <input type="date" class="form-control" name="fecha_inicio" 
+                           value="<?= htmlspecialchars($fecha_inicio) ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Fecha Fin</label>
+                    <input type="date" class="form-control" name="fecha_fin" 
+                           value="<?= htmlspecialchars($fecha_fin) ?>">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Estado</label>
+                    <select class="form-select" name="estado">
+                        <option value="">Todos</option>
+                        <option value="APROBADA" <?= $estado_filtro === 'APROBADA' ? 'selected' : '' ?>>Aprobada</option>
+                        <option value="RECHAZADA" <?= $estado_filtro === 'RECHAZADA' ? 'selected' : '' ?>>Rechazada</option>
+                        <option value="PENDIENTE" <?= $estado_filtro === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary w-50">
+                        <i class="fas fa-filter me-1"></i> Filtrar
+                    </button>
+                    <button type="reset" class="btn btn-secondary w-50" id="btnLimpiar">
+                        <i class="fas fa-undo me-1"></i> Limpiar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ✅ Estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(13,110,253,0.1);color:#0d6efd;">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Supervisiones</div>
+                        <div class="stat-number-mini"><?= number_format($estadisticas['total'] ?? 0) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(25,135,84,0.1);color:#198754;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Aprobadas</div>
+                        <div class="stat-number-mini"><?= number_format($estadisticas['aprobadas'] ?? 0) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(220,53,69,0.1);color:#dc3545;">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Rechazadas</div>
+                        <div class="stat-number-mini"><?= number_format($estadisticas['rechazadas'] ?? 0) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(13,202,240,0.1);color:#0dcaf0;">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Calif. Promedio</div>
+                        <div class="stat-number-mini"><?= number_format($estadisticas['calificacion_promedio'] ?? 0, 1) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ Tabla de supervisiones -->
+    <div class="card border-0">
+        <div class="card-body p-0">
+            <?php if (empty($supervisiones)): ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                    <h5>No hay supervisiones registradas</h5>
+                    <p class="text-muted">Ajusta los filtros para ver más resultados.</p>
+                </div>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:60px;">#</th>
+                                <th>Orden</th>
+                                <th>Supervisor</th>
+                                <th>Técnico</th>
+                                <th style="width:120px;">Calificación</th>
+                                <th style="width:120px;">Estado</th>
+                                <th style="width:80px;">Cumple</th>
+                                <th style="width:110px;">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($supervisiones as $item): ?>
+                                <tr>
+                                    <td><span class="fw-semibold"><?= $item['id'] ?></span></td>
+                                    <td>
+                                        <a href="/proyecto/ordenes/ver/<?= $item['orden_id'] ?>" class="text-decoration-none">
+                                            #<?= $item['orden_id'] ?>
+                                        </a>
+                                    </td>
+                                    <td><?= htmlspecialchars($item['supervisor'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($item['tecnico'] ?? 'N/A') ?></td>
+                                    <td>
+                                        <?php if (!empty($item['calificacion'])): ?>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <span class="fw-bold me-1"><?= $item['calificacion'] ?></span>
+                                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                    <i class="fas fa-star<?= $i <= $item['calificacion'] ? '' : '-o' ?> text-warning" style="font-size:0.85rem;"></i>
+                                                <?php endfor; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="text-muted">N/A</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $estado = $item['estado'] ?? 'PENDIENTE';
+                                        $badge = match($estado) {
+                                            'APROBADA' => 'success',
+                                            'RECHAZADA' => 'danger',
+                                            'PENDIENTE' => 'warning',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?= $badge ?> bg-opacity-10 text-<?= $badge ?> px-3 py-2">
+                                            <i class="fas fa-circle me-1" style="font-size:6px;"></i>
+                                            <?= $estado ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?= ($item['cumple'] ?? 0) ? '✅ Sí' : '❌ No' ?>
+                                    </td>
+                                    <td>
+                                        <small><?= isset($item['fecha_creacion']) ? date('d/m/Y', strtotime($item['fecha_creacion'])) : '-' ?></small>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php if (!empty($supervisiones)): ?>
+            <div class="card-footer bg-transparent">
+                <span class="text-muted small">
+                    <i class="fas fa-list me-1"></i> Mostrando <?= count($supervisiones) ?> registro(s)
+                </span>
+            </div>
+        <?php endif; ?>
+    </div>
+
 </div>
 
+<!-- ✅ Estilos -->
+<style>
+.stat-card-mini {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.3s ease;
+}
+.stat-card-mini:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+}
+.stat-card-mini .stat-icon-mini {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.stat-card-mini .stat-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+    font-weight: 600;
+}
+.stat-card-mini .stat-number-mini {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    line-height: 1.2;
+}
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.table th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+}
+</style>
+
+<!-- ✅ Scripts -->
 <script>
-    function exportarExcel() {
-        const params = new URLSearchParams(new FormData(document.getElementById('filtrosForm')));
-        window.location.href = '/proyecto/reportes/supervisionExcel?' + params.toString();
-    }
-
-    function exportarPDF() {
-        const params = new URLSearchParams(new FormData(document.getElementById('filtrosForm')));
-        window.location.href = '/proyecto/reportes/supervisionPDF?' + params.toString();
-    }
-
-    document.getElementById('filtrosForm').addEventListener('submit', function(e) {
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filtrosForm');
+    
+    // ✅ Enviar filtros
+    form.addEventListener('submit', function(e) {
         e.preventDefault();
-        window.location.href = '/proyecto/reportes/supervision?' + new URLSearchParams(new FormData(this)).toString();
+        const params = new URLSearchParams(new FormData(this));
+        window.location.href = '/proyecto/reportes/supervision?' + params.toString();
     });
 
-    document.getElementById('filtrosForm').addEventListener('reset', function(e) {
+    // ✅ Limpiar filtros
+    document.getElementById('btnLimpiar').addEventListener('click', function(e) {
         e.preventDefault();
         window.location.href = '/proyecto/reportes/supervision';
     });
+
+    // ✅ Validación de fechas (fecha_inicio <= fecha_fin)
+    const fechaInicio = document.querySelector('[name="fecha_inicio"]');
+    const fechaFin = document.querySelector('[name="fecha_fin"]');
+    
+    [fechaInicio, fechaFin].forEach(input => {
+        input.addEventListener('change', function() {
+            if (fechaInicio.value && fechaFin.value && fechaInicio.value > fechaFin.value) {
+                alert('⚠️ La fecha de inicio no puede ser mayor que la fecha fin.');
+                this.value = '';
+            }
+        });
+    });
+});
+
+/**
+ * Exportar reporte
+ * @param {string} tipo - 'excel' o 'pdf'
+ */
+function exportarReporte(tipo) {
+    const form = document.getElementById('filtrosForm');
+    const params = new URLSearchParams(new FormData(form));
+    // ✅ Usar una sola ruta de exportación con parámetro tipo
+    window.location.href = '/proyecto/reportes/exportar?tipo=supervision&formato=' + tipo + '&' + params.toString();
+}
 </script>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

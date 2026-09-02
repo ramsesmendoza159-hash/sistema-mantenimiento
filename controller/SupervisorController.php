@@ -1,6 +1,7 @@
 <?php
 // controller/SupervisorController.php
 // Ubicación: C:\xampp\htdocs\proyecto\controller\SupervisorController.php
+// VERSIÓN COMPLETA CORREGIDA
 
 require_once __DIR__ . '/../helpers/Controller.php';
 
@@ -444,3 +445,4 @@ class SupervisorController extends Controller {
         }
     }
 }
+?>

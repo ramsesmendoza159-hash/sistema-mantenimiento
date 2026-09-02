@@ -1,227 +1,183 @@
 <?php
-// model/Usuario.php
-// Modelo de usuarios - CORREGIDO
+// model/UsuariosModel.php
+// VERSIÓN DEFINITIVA - FUNCIONANDO
 
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../helpers/HashHelper.php';
-require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
-class Usuario {
+class UsuariosModel {
     private $db;
     
     public function __construct() {
-        $this->db = Database::getInstance()->getConnection();
+        try {
+            $this->db = Database::getInstance()->getConnection();
+        } catch (Exception $e) {
+            error_log("Error al conectar a la base de datos (UsuariosModel): " . $e->getMessage());
+            throw $e;
+        }
     }
-    
+
     /**
-     * Autenticar usuario - MÉTODO CORREGIDO
+     * ✅ AUTENTICAR - VERSIÓN FUNCIONAL
      */
     public function autenticar($email, $password) {
         try {
-            // Buscar usuario por email
             $sql = "SELECT id, nombre, email, password_hash, rol, estado 
                     FROM usuarios 
-                    WHERE email = ? AND estado = 'activo'";
+                    WHERE email = :email";
+            
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([SecurityHelper::sanitizeForDB($email)]);
+            $stmt->execute([':email' => $email]);
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$usuario) {
-                error_log("Autenticación fallida: Usuario no encontrado - $email");
+                error_log("Usuario no encontrado: " . $email);
                 return false;
             }
             
-            // Verificar contraseña usando HashHelper
-            if (HashHelper::verify($password, $usuario['password_hash'])) {
-                // Si el hash necesita ser rehasheado
-                if (HashHelper::needsRehash($usuario['password_hash'])) {
-                    $this->actualizarHash($usuario['id'], $password);
-                }
-                return $usuario;
+            if ($usuario['estado'] !== 'activo') {
+                error_log("Usuario inactivo: " . $email);
+                return false;
             }
             
-            // COMPATIBILIDAD: MD5 (versiones anteriores)
-            if (md5($password) === $usuario['password_hash']) {
-                $nuevoHash = HashHelper::encrypt($password);
-                $this->actualizarHash($usuario['id'], $password);
-                error_log("Usuario migrado de MD5 a bcrypt: $email");
-                return $usuario;
+            if (!password_verify($password, $usuario['password_hash'])) {
+                error_log("Contraseña incorrecta para: " . $email);
+                return false;
             }
             
-            error_log("Autenticación fallida: Contraseña incorrecta - $email");
-            return false;
+            unset($usuario['password_hash']);
+            error_log("Autenticación exitosa para: " . $email);
+            return $usuario;
             
         } catch (PDOException $e) {
             error_log("Error en autenticar: " . $e->getMessage());
             return false;
-        }
-    }
-    
-    /**
-     * Actualizar hash de usuario
-     */
-    public function actualizarHash($usuario_id, $password) {
-        try {
-            $nuevoHash = HashHelper::encrypt($password);
-            $sql = "UPDATE usuarios SET password_hash = ?, updated_at = NOW() WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$nuevoHash, (int)$usuario_id]);
-        } catch (PDOException $e) {
-            error_log("Error en actualizarHash: " . $e->getMessage());
+        } catch (Exception $e) {
+            error_log("Error general en autenticar: " . $e->getMessage());
             return false;
         }
     }
-    
+
+    /**
+     * ✅ OBTENER USUARIO POR ID - CORREGIDO (sin apellido ni telefono)
+     */
+    public function obtenerPorId($id) {
+        try {
+            if (!is_numeric($id) || (int)$id <= 0) {
+                error_log("obtenerPorId: ID inválido - $id");
+                return null;
+            }
+            
+            // ✅ SOLO campos que existen en la tabla
+            $sql = "SELECT id, nombre, email, rol, estado, fecha_creacion, fecha_actualizacion
+                    FROM usuarios 
+                    WHERE id = :id";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([':id' => (int)$id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$result) {
+                error_log("obtenerPorId: Usuario con ID $id no encontrado");
+                return null;
+            }
+            
+            return $result;
+            
+        } catch (PDOException $e) {
+            error_log("Error en obtenerPorId: " . $e->getMessage());
+            return null;
+        }
+    }
+
     /**
      * Obtener usuario por email
      */
     public function obtenerPorEmail($email) {
         try {
-            $sql = "SELECT * FROM usuarios WHERE email = ? AND estado = 'activo'";
+            $sql = "SELECT id, nombre, email, rol, estado, fecha_creacion 
+                    FROM usuarios WHERE email = :email";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([SecurityHelper::sanitizeForDB($email)]);
+            $stmt->execute([':email' => $email]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en obtenerPorEmail: " . $e->getMessage());
-            return false;
+            return null;
         }
     }
-    
+
     /**
-     * Obtener usuario por ID
+     * Verificar si el email ya existe
      */
-    public function obtenerPorId($id) {
+    public function emailExiste($email, $excluirId = null) {
         try {
-            $sql = "SELECT * FROM usuarios WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerPorId: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Obtener todos los usuarios
-     */
-    public function obtenerTodos($filtros = []) {
-        try {
-            $sql = "SELECT * FROM usuarios WHERE 1=1";
-            $params = [];
-            
-            if (!empty($filtros['estado'])) {
-                $sql .= " AND estado = ?";
-                $params[] = SecurityHelper::sanitizeForDB($filtros['estado']);
+            $sql = "SELECT id FROM usuarios WHERE email = :email";
+            $params = [':email' => $email];
+
+            if ($excluirId) {
+                $sql .= " AND id != :id";
+                $params[':id'] = (int)$excluirId;
             }
-            
-            if (!empty($filtros['rol'])) {
-                $sql .= " AND rol = ?";
-                $params[] = SecurityHelper::sanitizeForDB($filtros['rol']);
-            }
-            
-            if (!empty($filtros['buscar'])) {
-                $sql .= " AND (nombre LIKE ? OR email LIKE ?)";
-                $buscar = '%' . SecurityHelper::sanitizeForDB($filtros['buscar']) . '%';
-                $params[] = $buscar;
-                $params[] = $buscar;
-            }
-            
-            $sql .= " ORDER BY nombre ASC";
+
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetch() !== false;
+
         } catch (PDOException $e) {
-            error_log("Error en obtenerTodos: " . $e->getMessage());
-            return [];
-        }
-    }
-    
-    /**
-     * Crear usuario con hash seguro
-     */
-    public function crear($datos) {
-        try {
-            // Validar datos
-            $errores = $this->validarDatos($datos, true);
-            if (!empty($errores)) {
-                $_SESSION['errores'] = $errores;
-                return false;
-            }
-            
-            $hash = HashHelper::encrypt($datos['password']);
-            
-            $sql = "INSERT INTO usuarios (nombre, email, password_hash, rol, estado) 
-                    VALUES (?, ?, ?, ?, ?)";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
-                SecurityHelper::sanitizeForDB($datos['nombre']),
-                SecurityHelper::sanitizeForDB($datos['email']),
-                $hash,
-                SecurityHelper::sanitizeForDB($datos['rol'] ?? 'usuario'),
-                SecurityHelper::sanitizeForDB($datos['estado'] ?? 'activo')
-            ]);
-        } catch (PDOException $e) {
-            error_log("Error en crear: " . $e->getMessage());
+            error_log("Error en emailExiste: " . $e->getMessage());
             return false;
         }
     }
-    
+
+    /**
+     * Cambiar contraseña del usuario
+     */
+    public function cambiarPassword($id, $password) {
+        try {
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $sql = "UPDATE usuarios SET password_hash = :password_hash, fecha_actualizacion = NOW() WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([
+                ':password_hash' => $passwordHash,
+                ':id' => (int)$id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Error en cambiarPassword: " . $e->getMessage());
+            return false;
+        }
+    }
+
     /**
      * Actualizar usuario
      */
     public function actualizar($id, $datos) {
         try {
-            $errores = $this->validarDatos($datos, false);
-            if (!empty($errores)) {
-                $_SESSION['errores'] = $errores;
-                return false;
+            // ✅ SOLO campos que existen en la tabla
+            $sql = "UPDATE usuarios SET 
+                        nombre = :nombre,
+                        email = :email,
+                        fecha_actualizacion = NOW()";
+            
+            $params = [
+                ':nombre' => $datos['nombre'] ?? '',
+                ':email' => $datos['email'] ?? '',
+                ':id' => (int)$id
+            ];
+            
+            if (!empty($datos['password'])) {
+                $sql .= ", password_hash = :password_hash";
+                $params[':password_hash'] = password_hash($datos['password'], PASSWORD_DEFAULT);
             }
             
-            $sql = "UPDATE usuarios SET 
-                        nombre = ?,
-                        email = ?,
-                        rol = ?,
-                        estado = ?,
-                        updated_at = NOW()
-                    WHERE id = ?";
+            $sql .= " WHERE id = :id";
+            
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
-                SecurityHelper::sanitizeForDB($datos['nombre']),
-                SecurityHelper::sanitizeForDB($datos['email']),
-                SecurityHelper::sanitizeForDB($datos['rol'] ?? 'usuario'),
-                SecurityHelper::sanitizeForDB($datos['estado'] ?? 'activo'),
-                (int)$id
-            ]);
+            return $stmt->execute($params);
+
         } catch (PDOException $e) {
-            error_log("Error en actualizar: " . $e->getMessage());
+            error_log("Error en actualizar usuario: " . $e->getMessage());
             return false;
         }
     }
-    
-    /**
-     * Validar datos
-     */
-    private function validarDatos($datos, $esCreacion = true) {
-        $errores = [];
-        
-        if (empty($datos['nombre'])) {
-            $errores[] = 'El nombre es obligatorio';
-        }
-        
-        if (empty($datos['email']) || !ValidationHelper::validateEmail($datos['email'])) {
-            $errores[] = 'El email no es válido';
-        }
-        
-        if ($esCreacion && empty($datos['password'])) {
-            $errores[] = 'La contraseña es obligatoria';
-        }
-        
-        if ($esCreacion && strlen($datos['password']) < 6) {
-            $errores[] = 'La contraseña debe tener al menos 6 caracteres';
-        }
-        
-        return $errores;
-    }
 }
-?>
+// ✅ CIERRE DE LA CLASE

@@ -1,6 +1,6 @@
 <?php
 // helpers/AuthHelper.php
-// Ubicación: C:\xampp\htdocs\proyecto\helpers\AuthHelper.php
+// VERSIÓN COMPLETA CON TODOS LOS ROLES
 
 class AuthHelper {
     
@@ -8,6 +8,9 @@ class AuthHelper {
      * Verificar si el usuario está logueado
      */
     public function isLoggedIn() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         return isset($_SESSION['usuario_id']) && !empty($_SESSION['usuario_id']);
     }
 
@@ -15,6 +18,9 @@ class AuthHelper {
      * Obtener el rol del usuario actual
      */
     public function getRole() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         return isset($_SESSION['rol']) ? $_SESSION['rol'] : null;
     }
 
@@ -22,6 +28,9 @@ class AuthHelper {
      * Obtener el ID del usuario actual
      */
     public function getUserId() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         return isset($_SESSION['usuario_id']) ? $_SESSION['usuario_id'] : null;
     }
 
@@ -29,6 +38,9 @@ class AuthHelper {
      * Obtener el nombre del usuario actual
      */
     public function getUsername() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         return isset($_SESSION['nombre']) ? $_SESSION['nombre'] : null;
     }
 
@@ -36,6 +48,9 @@ class AuthHelper {
      * Obtener el email del usuario actual
      */
     public function getUserEmail() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         return isset($_SESSION['email']) ? $_SESSION['email'] : null;
     }
 
@@ -54,25 +69,50 @@ class AuthHelper {
         return $this->getRole() === $role;
     }
 
-    /**
-     * Verificar si el usuario es administrador
-     */
+    // ✅ VERIFICACIONES POR ROL
     public function isAdmin() {
         return $this->hasRole('admin');
     }
 
-    /**
-     * Verificar si el usuario es supervisor
-     */
     public function isSupervisor() {
         return $this->hasRole('supervisor');
     }
 
-    /**
-     * Verificar si el usuario es técnico
-     */
     public function isTecnico() {
         return $this->hasRole('tecnico');
+    }
+
+    public function isAlmacen() {
+        return $this->hasRole('almacen');
+    }
+
+    public function isOperador() {
+        return $this->hasRole('operador');
+    }
+
+    public function isConsultor() {
+        return $this->hasRole('consultor');
+    }
+
+    // ✅ PERMISOS ESPECÍFICOS
+    public function puedeCrearOrden() {
+        return $this->isAdmin() || $this->isOperador();
+    }
+
+    public function puedeEditarOrdenEnProceso() {
+        return $this->isAdmin();
+    }
+
+    public function puedeAprobarOrden() {
+        return $this->isAdmin() || $this->isSupervisor();
+    }
+
+    public function puedeVerTodasOrdenes() {
+        return $this->isAdmin() || $this->isConsultor();
+    }
+
+    public function puedeGestionarInventario() {
+        return $this->isAdmin() || $this->isAlmacen();
     }
 
     /**
@@ -88,7 +128,7 @@ class AuthHelper {
         
         switch ($role) {
             case 'admin':
-                header('Location: /proyecto/admin/dashboard');
+                header('Location: /proyecto/dashboard');
                 break;
             case 'supervisor':
                 header('Location: /proyecto/supervisor');
@@ -96,29 +136,19 @@ class AuthHelper {
             case 'tecnico':
                 header('Location: /proyecto/tecnico');
                 break;
+            case 'almacen':
+                header('Location: /proyecto/almacen');
+                break;
+            case 'operador':
+                header('Location: /proyecto/operador');
+                break;
+            case 'consultor':
+                header('Location: /proyecto/consultor');
+                break;
             default:
                 header('Location: /proyecto/dashboard');
                 break;
         }
-        exit();
-    }
-
-    /**
-     * Cerrar sesión
-     */
-    public function logout() {
-        $_SESSION = array();
-        
-        if (ini_get("session.use_cookies")) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $params["domain"],
-                $params["secure"], $params["httponly"]
-            );
-        }
-        
-        session_destroy();
-        header('Location: /proyecto/auth/login');
         exit();
     }
 
@@ -132,6 +162,7 @@ class AuthHelper {
         }
 
         if (!empty($allowedRoles) && !$this->hasRole($allowedRoles)) {
+            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirectByRole();
             exit();
         }
@@ -140,12 +171,31 @@ class AuthHelper {
     }
 
     /**
-     * Obtener el tipo de usuario (admin, supervisor, tecnico)
+     * Cerrar sesión
      */
-    public function getUserType() {
-        if ($this->isAdmin()) return 'admin';
-        if ($this->isSupervisor()) return 'supervisor';
-        if ($this->isTecnico()) return 'tecnico';
-        return 'usuario';
+    public function logout() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        $_SESSION = array();
+        
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params["path"],
+                $params["domain"],
+                $params["secure"],
+                $params["httponly"]
+            );
+        }
+        
+        session_destroy();
+        header('Location: /proyecto/auth/login');
+        exit();
     }
 }
+?>

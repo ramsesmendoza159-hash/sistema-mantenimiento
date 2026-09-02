@@ -1,432 +1,372 @@
 <?php
 // views/reportes/financieros.php
-// Ubicación: C:\xampp\htdocs\proyecto\views\reportes\financieros.php
+// Reportes Financieros - VERSIÓN CORREGIDA CON ASTEROADMIN
 
 // Verificar sesión
-if (!isset($_SESSION['usuario_id'])) {
+if (!isset($_SESSION['usuario_id']) || empty($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
     exit;
 }
 
-// Sanitizar datos para la vista
-$seccion = 'reportes';
+$seccion = 'financieros';
 $titulo = 'Reportes Financieros';
 
-// Asegurar que las variables existan
+// Inicializar variables si no existen
 $stats = $stats ?? [
-    'total_ordenes' => 0, 'total_costos' => 0,
-    'total_repuestos' => 0, 'total_mano_obra' => 0,
-    'promedio_costo' => 0, 'promedio_horas' => 0, 'total_horas' => 0
+    'total_ordenes' => 0,
+    'total_costos' => 0,
+    'total_repuestos' => 0,
+    'total_mano_obra' => 0,
+    'promedio_costo' => 0,
+    'promedio_horas' => 0,
+    'total_horas' => 0
 ];
 $costos_por_planta = $costos_por_planta ?? [];
 $costos_por_tecnico = $costos_por_tecnico ?? [];
 $costos_por_mes = $costos_por_mes ?? [];
-$top_repuestos = $top_repuestos ?? [];
 $fechaInicio = $fechaInicio ?? date('Y-m-01');
 $fechaFin = $fechaFin ?? date('Y-m-t');
 
 include_once __DIR__ . '/../layouts/header.php';
+include_once __DIR__ . '/../layouts/sidebar.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include_once __DIR__ . '/../layouts/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2"><i class="fas fa-money-bill-wave"></i> Reportes Financieros</h1>
-                <div>
-                    <button onclick="exportarReporte('detallado')" class="btn btn-success me-2">
-                        <i class="fas fa-file-excel"></i> Exportar Detallado
-                    </button>
-                    <button onclick="exportarReporte('resumen')" class="btn btn-primary">
-                        <i class="fas fa-file-excel"></i> Exportar Resumen
-                    </button>
-                </div>
-            </div>
+<div class="container-fluid px-0">
 
-            <!-- Mostrar errores -->
-            <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['error']); ?>
-            <?php endif; ?>
-
-            <!-- Filtros -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form method="GET" action="/proyecto/reportes/financieros" class="row g-3 align-items-end">
-                        <div class="col-md-3">
-                            <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
-                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
-                                   value="<?php echo htmlspecialchars($fechaInicio); ?>">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="fecha_fin" class="form-label">Fecha Fin</label>
-                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" 
-                                   value="<?php echo htmlspecialchars($fechaFin); ?>">
-                        </div>
-                        <div class="col-md-3">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-search"></i> Actualizar
-                            </button>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="/proyecto/reportes/financieros" class="btn btn-secondary w-100">
-                                <i class="fas fa-undo"></i> Limpiar
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Cards de resumen financiero -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card text-white bg-primary">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-clipboard-list"></i> Total Órdenes</h6>
-                            <p class="card-text display-6"><?php echo number_format($stats['total_ordenes'] ?? 0); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-white bg-success">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-dollar-sign"></i> Costo Total</h6>
-                            <p class="card-text display-6">S/ <?php echo number_format($stats['total_costos'] ?? 0, 2); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-white bg-warning">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-tools"></i> Repuestos</h6>
-                            <p class="card-text display-6">S/ <?php echo number_format($stats['total_repuestos'] ?? 0, 2); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-white bg-info">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-user-cog"></i> Mano de Obra</h6>
-                            <p class="card-text display-6">S/ <?php echo number_format($stats['total_mano_obra'] ?? 0, 2); ?></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Segundo grupo de cards -->
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-chart-line"></i> Promedio por Orden</h6>
-                            <p class="card-text display-6">S/ <?php echo number_format($stats['promedio_costo'] ?? 0, 2); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-clock"></i> Total Horas</h6>
-                            <p class="card-text display-6"><?php echo number_format($stats['total_horas'] ?? 0, 1); ?> h</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-clock"></i> Promedio Horas</h6>
-                            <p class="card-text display-6"><?php echo number_format($stats['promedio_horas'] ?? 0, 1); ?> h</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos - Solo mostrar si hay datos -->
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Costos por Planta</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="costosPlantaChart"></canvas>
-                            <?php if (empty($costos_por_planta)): ?>
-                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-doughnut"></i> Distribución de Costos</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="distribucionChart"></canvas>
-                            <?php if (($stats['total_costos'] ?? 0) <= 0): ?>
-                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-line"></i> Evolución Mensual</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="mensualChart"></canvas>
-                            <?php if (empty($costos_por_mes)): ?>
-                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-medal"></i> Top Repuestos</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="repuestosChart"></canvas>
-                            <?php if (empty($top_repuestos)): ?>
-                                <p class="text-center text-muted mt-3">No hay datos disponibles</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabla de costos por técnico -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-users"></i> Costos por Técnico</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Técnico</th>
-                                    <th>Órdenes</th>
-                                    <th>Total Horas</th>
-                                    <th>Prom. Horas</th>
-                                    <th>Costo Mano Obra</th>
-                                    <th>Costo Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (!empty($costos_por_tecnico)): ?>
-                                    <?php foreach ($costos_por_tecnico as $tecnico): ?>
-                                        <tr>
-                                            <td><strong><?php echo htmlspecialchars($tecnico['tecnico']); ?></strong></td>
-                                            <td><?php echo (int)($tecnico['total_ordenes'] ?? 0); ?></td>
-                                            <td><?php echo number_format($tecnico['total_horas'] ?? 0, 1); ?></td>
-                                            <td><?php echo number_format($tecnico['promedio_horas'] ?? 0, 1); ?></td>
-                                            <td>S/ <?php echo number_format($tecnico['total_mano_obra'] ?? 0, 2); ?></td>
-                                            <td>S/ <?php echo number_format($tecnico['total_costos'] ?? 0, 2); ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr>
-                                        <td colspan="6" class="text-center text-muted">No hay datos disponibles</td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </main>
+    <!-- ✅ Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold">
+                <i class="fas fa-chart-line text-primary me-2"></i>Reportes Financieros
+            </h4>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-calendar-alt me-1"></i> 
+                <?= date('d/m/Y H:i') ?>
+                <span class="mx-2">|</span>
+                <i class="fas fa-info-circle me-1"></i>
+                <?= $stats['total_ordenes'] ?? 0 ?> órdenes procesadas
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/proyecto/reportes/financieros/exportar?tipo=resumen&fecha_inicio=<?= $fechaInicio ?>&fecha_fin=<?= $fechaFin ?>" 
+               class="btn btn-success btn-sm">
+                <i class="fas fa-file-excel me-1"></i> Exportar Resumen
+            </a>
+            <a href="/proyecto/reportes/financieros/exportar?tipo=detallado&fecha_inicio=<?= $fechaInicio ?>&fecha_fin=<?= $fechaFin ?>" 
+               class="btn btn-primary btn-sm">
+                <i class="fas fa-file-csv me-1"></i> Exportar Detallado
+            </a>
+            <a href="/proyecto/reportes" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
     </div>
+
+    <!-- ✅ Filtros -->
+    <div class="card border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" action="/proyecto/reportes/financieros" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" class="form-control" 
+                           value="<?= htmlspecialchars($fechaInicio) ?>">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">Fecha Fin</label>
+                    <input type="date" name="fecha_fin" class="form-control" 
+                           value="<?= htmlspecialchars($fechaFin) ?>">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ✅ Mensajes -->
+    <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <?php unset($_SESSION['error']); ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- ✅ Tarjetas de Estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(13,110,253,0.1);color:#0d6efd;">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Órdenes</div>
+                        <div class="stat-number-mini"><?= number_format($stats['total_ordenes'] ?? 0) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(25,135,84,0.1);color:#198754;">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Costo Total</div>
+                        <div class="stat-number-mini">S/ <?= number_format($stats['total_costos'] ?? 0, 2) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(255,193,7,0.1);color:#ffc107;">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Horas</div>
+                        <div class="stat-number-mini"><?= number_format($stats['total_horas'] ?? 0, 1) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6">
+            <div class="stat-card-mini">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-mini" style="background:rgba(220,53,69,0.1);color:#dc3545;">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Promedio Costo</div>
+                        <div class="stat-number-mini">S/ <?= number_format($stats['promedio_costo'] ?? 0, 2) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ Costos por Técnico -->
+    <?php if (!empty($costos_por_tecnico)): ?>
+    <div class="card border-0 mb-4">
+        <div class="card-header bg-transparent border-0 pt-3">
+            <h5 class="mb-0 fw-semibold">
+                <i class="fas fa-user-cog text-success me-2"></i> Costos por Técnico
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Técnico</th>
+                            <th class="text-center">Órdenes</th>
+                            <th class="text-end">Horas</th>
+                            <th class="text-end">Prom. Horas</th>
+                            <th class="text-end">Costo Mano Obra</th>
+                            <th class="text-end">Costo Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($costos_por_tecnico as $item): ?>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="avatar-sm" style="width:32px;height:32px;border-radius:50%;background:#6c757d;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.75rem;">
+                                        <?= strtoupper(substr($item['tecnico'] ?? '?', 0, 1)) ?>
+                                    </div>
+                                    <?= htmlspecialchars($item['tecnico'] ?? 'N/A') ?>
+                                </div>
+                            </td>
+                            <td class="text-center"><?= number_format($item['total_ordenes'] ?? 0) ?></td>
+                            <td class="text-end"><?= number_format($item['total_horas'] ?? 0, 1) ?></td>
+                            <td class="text-end"><?= number_format($item['promedio_horas'] ?? 0, 1) ?></td>
+                            <td class="text-end">S/ <?= number_format($item['total_mano_obra'] ?? 0, 2) ?></td>
+                            <td class="text-end"><strong>S/ <?= number_format($item['total_costos'] ?? 0, 2) ?></strong></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- ✅ Costos por Planta -->
+    <?php if (!empty($costos_por_planta)): ?>
+    <div class="card border-0 mb-4">
+        <div class="card-header bg-transparent border-0 pt-3">
+            <h5 class="mb-0 fw-semibold">
+                <i class="fas fa-building text-primary me-2"></i> Costos por Planta
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Planta</th>
+                            <th class="text-center">Órdenes</th>
+                            <th class="text-end">Costo Repuestos</th>
+                            <th class="text-end">Costo Mano Obra</th>
+                            <th class="text-end">Costo Total</th>
+                            <th class="text-center">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        $total_general = array_sum(array_column($costos_por_planta, 'total_costos'));
+                        foreach ($costos_por_planta as $item): 
+                            $porcentaje = $total_general > 0 ? round(($item['total_costos'] ?? 0) / $total_general * 100, 1) : 0;
+                        ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($item['nombre_planta'] ?? 'N/A') ?></strong></td>
+                            <td class="text-center"><?= number_format($item['total_ordenes'] ?? 0) ?></td>
+                            <td class="text-end">S/ <?= number_format($item['total_repuestos'] ?? 0, 2) ?></td>
+                            <td class="text-end">S/ <?= number_format($item['total_mano_obra'] ?? 0, 2) ?></td>
+                            <td class="text-end"><strong>S/ <?= number_format($item['total_costos'] ?? 0, 2) ?></strong></td>
+                            <td class="text-center">
+                                <div class="progress" style="height:6px;">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         style="width:<?= $porcentaje ?>%;"></div>
+                                </div>
+                                <small><?= $porcentaje ?>%</small>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- ✅ Costos por Mes -->
+    <?php if (!empty($costos_por_mes)): ?>
+    <div class="card border-0 mb-4">
+        <div class="card-header bg-transparent border-0 pt-3">
+            <h5 class="mb-0 fw-semibold">
+                <i class="fas fa-calendar-alt text-info me-2"></i> Costos por Mes (<?= date('Y') ?>)
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mes</th>
+                            <th class="text-center">Órdenes</th>
+                            <th class="text-end">Costo Repuestos</th>
+                            <th class="text-end">Costo Mano Obra</th>
+                            <th class="text-end">Costo Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        $meses = [
+                            '01' => 'Enero', '02' => 'Febrero', '03' => 'Marzo',
+                            '04' => 'Abril', '05' => 'Mayo', '06' => 'Junio',
+                            '07' => 'Julio', '08' => 'Agosto', '09' => 'Septiembre',
+                            '10' => 'Octubre', '11' => 'Noviembre', '12' => 'Diciembre'
+                        ];
+                        foreach ($costos_por_mes as $item): 
+                            $mes_num = substr($item['mes'], -2);
+                        ?>
+                        <tr>
+                            <td><strong><?= $meses[$mes_num] ?? $item['mes'] ?></strong></td>
+                            <td class="text-center"><?= number_format($item['total_ordenes'] ?? 0) ?></td>
+                            <td class="text-end">S/ <?= number_format($item['total_repuestos'] ?? 0, 2) ?></td>
+                            <td class="text-end">S/ <?= number_format($item['total_mano_obra'] ?? 0, 2) ?></td>
+                            <td class="text-end"><strong>S/ <?= number_format($item['total_costos'] ?? 0, 2) ?></strong></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- ✅ Mensaje cuando no hay datos -->
+    <?php if (empty($costos_por_planta) && empty($costos_por_tecnico) && empty($costos_por_mes)): ?>
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i> 
+        No hay datos financieros disponibles para el período seleccionado.
+        <?php if (!empty($stats['total_ordenes'])): ?>
+            <br><small>Sin embargo, hay <?= $stats['total_ordenes'] ?> órdenes en el sistema.</small>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        <?php if (!empty($costos_por_planta)): ?>
-        // Costos por Planta
-        const ctxPlanta = document.getElementById('costosPlantaChart').getContext('2d');
-        new Chart(ctxPlanta, {
-            type: 'bar',
-            data: {
-                labels: <?php echo json_encode(array_column($costos_por_planta, 'nombre_planta')); ?>,
-                datasets: [
-                    {
-                        label: 'Costo Total',
-                        data: <?php echo json_encode(array_column($costos_por_planta, 'total_costos')); ?>,
-                        backgroundColor: 'rgba(13, 110, 253, 0.7)',
-                        borderColor: '#0d6efd',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Repuestos',
-                        data: <?php echo json_encode(array_column($costos_por_planta, 'total_repuestos')); ?>,
-                        backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                        borderColor: '#ffc107',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Mano de Obra',
-                        data: <?php echo json_encode(array_column($costos_por_planta, 'total_mano_obra')); ?>,
-                        backgroundColor: 'rgba(23, 162, 184, 0.7)',
-                        borderColor: '#17a2b8',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'top' }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return 'S/ ' + value.toFixed(2);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        <?php endif; ?>
-
-        <?php if (isset($stats['total_costos']) && $stats['total_costos'] > 0): ?>
-        // Distribución de Costos
-        const ctxDist = document.getElementById('distribucionChart').getContext('2d');
-        new Chart(ctxDist, {
-            type: 'doughnut',
-            data: {
-                labels: ['Repuestos', 'Mano de Obra'],
-                datasets: [{
-                    data: [
-                        <?php echo $stats['total_repuestos'] ?? 0; ?>,
-                        <?php echo $stats['total_mano_obra'] ?? 0; ?>
-                    ],
-                    backgroundColor: ['#ffc107', '#17a2b8'],
-                    borderColor: '#fff',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'bottom' },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                let percentage = ((context.raw / total) * 100).toFixed(1);
-                                return 'S/ ' + context.raw.toFixed(2) + ' (' + percentage + '%)';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        <?php endif; ?>
-
-        <?php if (!empty($costos_por_mes)): ?>
-        // Evolución Mensual
-        const ctxMensual = document.getElementById('mensualChart').getContext('2d');
-        new Chart(ctxMensual, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode(array_column($costos_por_mes, 'mes')); ?>,
-                datasets: [
-                    {
-                        label: 'Costo Total',
-                        data: <?php echo json_encode(array_column($costos_por_mes, 'total_costos')); ?>,
-                        borderColor: '#0d6efd',
-                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Repuestos',
-                        data: <?php echo json_encode(array_column($costos_por_mes, 'total_repuestos')); ?>,
-                        borderColor: '#ffc107',
-                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Mano de Obra',
-                        data: <?php echo json_encode(array_column($costos_por_mes, 'total_mano_obra')); ?>,
-                        borderColor: '#17a2b8',
-                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'top' }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return 'S/ ' + value.toFixed(2);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        <?php endif; ?>
-
-        <?php if (!empty($top_repuestos)): ?>
-        // Top Repuestos
-        const ctxRepuestos = document.getElementById('repuestosChart').getContext('2d');
-        new Chart(ctxRepuestos, {
-            type: 'bar',
-            data: {
-                labels: <?php echo json_encode(array_column($top_repuestos, 'nombre')); ?>,
-                datasets: [{
-                    label: 'Cantidad Utilizada',
-                    data: <?php echo json_encode(array_column($top_repuestos, 'total_utilizados')); ?>,
-                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                    borderColor: '#28a745',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                indexAxis: 'y',
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1 }
-                    }
-                }
-            }
-        });
-        <?php endif; ?>
-    });
-
-    function exportarReporte(tipo) {
-        const params = new URLSearchParams(window.location.search);
-        params.set('tipo', tipo);
-        window.location.href = '/proyecto/reportes/financieros/exportar?' + params.toString();
-    }
-</script>
+<!-- ✅ Estilos -->
+<style>
+.stat-card-mini {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.3s ease;
+}
+.stat-card-mini:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+}
+.stat-card-mini .stat-icon-mini {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.stat-card-mini .stat-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+    font-weight: 600;
+}
+.stat-card-mini .stat-number-mini {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    line-height: 1.2;
+}
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.table th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+}
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+.progress {
+    background: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+}
+</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

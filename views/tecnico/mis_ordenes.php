@@ -1,210 +1,184 @@
 <?php
 // views/tecnico/mis_ordenes.php
-// Ubicación: C:\xampp\htdocs\proyecto\views\tecnico\mis_ordenes.php
+// Mis Órdenes - VERSIÓN CORREGIDA
 
-// ✅ Verificar si la sesión ya está activa
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// ✅ Verificar que las variables existan
+if (!isset($seccion)) {
+    $seccion = 'mis_ordenes';
+}
+if (!isset($titulo)) {
+    $titulo = 'Mis Órdenes de Trabajo';
+}
+if (!isset($ordenes)) {
+    $ordenes = [];
 }
 
-if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'tecnico') {
-    header('Location: /proyecto/auth/login');
-    exit();
-}
-
-$titulo = "Mis Órdenes de Trabajo";
-$seccion = "tecnico";
 include_once __DIR__ . '/../layouts/header.php';
+// ❌ NO incluir sidebar aquí (ya está en header)
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include_once __DIR__ . '/../layouts/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Mis Órdenes de Trabajo</h1>
-                <a href="/proyecto/tecnico" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Volver al Panel
-                </a>
-            </div>
+<div class="container-fluid px-0">
 
-            <!-- Filtros -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form id="filtrosForm" class="row g-3">
-                        <div class="col-md-3">
-                            <label for="estado" class="form-label">Estado</label>
-                            <select class="form-select" id="estado" name="estado">
-                                <option value="">Todos</option>
-                                <option value="PENDIENTE">Pendiente</option>
-                                <option value="EN_PROCESO">En Progreso</option>
-                                <option value="CERRADA">Completada</option>
-                                <option value="CANCELADA">Cancelada</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="prioridad" class="form-label">Prioridad</label>
-                            <select class="form-select" id="prioridad" name="prioridad">
-                                <option value="">Todas</option>
-                                <option value="Baja">Baja</option>
-                                <option value="Media">Media</option>
-                                <option value="Alta">Alta</option>
-                                <option value="Urgente">Urgente</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="fecha" class="form-label">Fecha</label>
-                            <input type="date" class="form-control" id="fecha" name="fecha">
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary me-2">Filtrar</button>
-                            <button type="reset" class="btn btn-secondary">Limpiar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Tabla de órdenes -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Título</th>
-                                    <th>Área</th>
-                                    <th>Prioridad</th>
-                                    <th>Estado</th>
-                                    <th>Fecha</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ordenesBody">
-                                <!-- Cargado por AJAX -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <div id="paginacion"></div>
-                        <div>
-                            <span id="totalRegistros">Mostrando 0 registros</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+    <!-- ✅ Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold">
+                <i class="fas fa-clipboard-list text-primary me-2"></i>Mis Órdenes de Trabajo
+            </h4>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-info-circle me-1"></i> Gestiona tus órdenes de trabajo asignadas
+            </p>
+        </div>
+        <a href="/proyecto/tecnico" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Panel
+        </a>
     </div>
+
+    <!-- ✅ Filtros -->
+    <div class="card border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" action="/proyecto/tecnico/mis_ordenes" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Estado</label>
+                    <select name="estado" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="PENDIENTE" <?php echo (isset($_GET['estado']) && $_GET['estado'] === 'PENDIENTE') ? 'selected' : ''; ?>>Pendiente</option>
+                        <option value="EN_PROCESO" <?php echo (isset($_GET['estado']) && $_GET['estado'] === 'EN_PROCESO') ? 'selected' : ''; ?>>En Progreso</option>
+                        <option value="EJECUTADA" <?php echo (isset($_GET['estado']) && $_GET['estado'] === 'EJECUTADA') ? 'selected' : ''; ?>>Ejecutada</option>
+                        <option value="CERRADA" <?php echo (isset($_GET['estado']) && $_GET['estado'] === 'CERRADA') ? 'selected' : ''; ?>>Completada</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Prioridad</label>
+                    <select name="prioridad" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        <option value="Baja">Baja</option>
+                        <option value="Media">Media</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Urgente">Urgente</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Fecha</label>
+                    <input type="date" name="fecha" class="form-control form-control-sm" value="<?php echo isset($_GET['fecha']) ? htmlspecialchars($_GET['fecha']) : ''; ?>">
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="fas fa-search me-1"></i> Filtrar
+                        </button>
+                        <a href="/proyecto/tecnico/mis_ordenes" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-undo me-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ✅ Tabla de órdenes -->
+    <div class="card border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Título</th>
+                            <th>Área</th>
+                            <th>Prioridad</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($ordenes)): ?>
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="fas fa-inbox fa-2x d-block mb-2"></i>
+                                    No hay órdenes asignadas
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($ordenes as $orden): ?>
+                                <tr>
+                                    <td><span class="fw-semibold">#<?php echo $orden['id']; ?></span></td>
+                                    <td><?php echo htmlspecialchars($orden['titulo'] ?? 'Sin título'); ?></td>
+                                    <td><?php echo htmlspecialchars($orden['nombre_area'] ?? 'N/A'); ?></td>
+                                    <td>
+                                        <?php
+                                        $prioridadColor = match($orden['prioridad'] ?? 'Media') {
+                                            'Baja' => 'success',
+                                            'Media' => 'info',
+                                            'Alta' => 'warning',
+                                            'Urgente' => 'danger',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?php echo $prioridadColor; ?> bg-opacity-10 text-<?php echo $prioridadColor; ?>">
+                                            <?php echo $orden['prioridad'] ?? 'Media'; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $estadoColor = match($orden['status'] ?? 'PENDIENTE') {
+                                            'PENDIENTE' => 'warning',
+                                            'EN_PROCESO' => 'info',
+                                            'EJECUTADA' => 'primary',
+                                            'CERRADA' => 'success',
+                                            'APROBADA' => 'success',
+                                            'CANCELADA' => 'danger',
+                                            'RECHAZADA' => 'danger',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge-status bg-<?php echo $estadoColor; ?> bg-opacity-10 text-<?php echo $estadoColor; ?>">
+                                            <i class="fas fa-circle me-1" style="font-size:6px;"></i>
+                                            <?php echo $orden['status'] ?? 'PENDIENTE'; ?>
+                                        </span>
+                                    </td>
+                                    <td><small><?php echo date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')); ?></small></td>
+                                    <td>
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <a href="/proyecto/tecnico/detalle_orden/<?php echo $orden['id']; ?>" class="btn btn-sm btn-info" title="Ver">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <?php if (!in_array($orden['status'] ?? '', ['CERRADA', 'APROBADA', 'CANCELADA'])): ?>
+                                                <a href="/proyecto/tecnico/cerrar_orden/<?php echo $orden['id']; ?>" class="btn btn-sm btn-success" title="Cerrar">
+                                                    <i class="fas fa-check-circle"></i>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3 text-muted small">
+                <i class="fas fa-list me-1"></i> Mostrando <?php echo count($ordenes); ?> órden(es)
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<script>
-    let paginaActual = 1;
-    const porPagina = 10;
-
-    function cargarOrdenes(page = 1) {
-        paginaActual = page;
-        const formData = new FormData(document.getElementById('filtrosForm'));
-        const params = new URLSearchParams(formData);
-        params.append('page', page);
-        params.append('limit', porPagina);
-
-        fetch(`/proyecto/tecnico/mis_ordenes_list?${params.toString()}`)
-            .then(response => response.json())
-            .then(data => {
-                const tbody = document.getElementById('ordenesBody');
-                tbody.innerHTML = '';
-
-                if (data.ordenes && data.ordenes.length > 0) {
-                    data.ordenes.forEach(orden => {
-                        const tr = document.createElement('tr');
-                        const prioridadClass = {
-                            'Baja': 'info',
-                            'Media': 'warning',
-                            'Alta': 'danger',
-                            'Urgente': 'danger'
-                        }[orden.prioridad] || 'secondary';
-
-                        const estadoClass = {
-                            'PENDIENTE': 'warning',
-                            'EN_PROCESO': 'info',
-                            'CERRADA': 'success',
-                            'APROBADA': 'success',
-                            'CANCELADA': 'danger'
-                        }[orden.estado] || 'secondary';
-
-                        tr.innerHTML = `
-                            <td>${orden.id}</td>
-                            <td>${orden.titulo}</td>
-                            <td>${orden.area || 'N/A'}</td>
-                            <td><span class="badge bg-${prioridadClass}">${orden.prioridad}</span></td>
-                            <td><span class="badge bg-${estadoClass}">${orden.estado}</span></td>
-                            <td>${orden.fecha_creacion}</td>
-                            <td>
-                                <a href="/proyecto/tecnico/detalle_orden/${orden.id}" class="btn btn-sm btn-info">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                ${orden.estado !== 'CERRADA' && orden.estado !== 'APROBADA' && orden.estado !== 'CANCELADA' ? 
-                                    `<a href="/proyecto/tecnico/cerrar_orden/${orden.id}" class="btn btn-sm btn-success">
-                                        <i class="bi bi-check-circle"></i>
-                                    </a>` : ''}
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-
-                    actualizarPaginacion(data.total, data.paginas);
-                    document.getElementById('totalRegistros').textContent = 
-                        `Mostrando ${data.ordenes.length} de ${data.total} registros`;
-                } else {
-                    tbody.innerHTML = `<tr><td colspan="7" class="text-center">No hay órdenes asignadas</td></tr>`;
-                    document.getElementById('totalRegistros').textContent = 'Mostrando 0 registros';
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
-    function actualizarPaginacion(total, paginas) {
-        const div = document.getElementById('paginacion');
-        div.innerHTML = '';
-        
-        if (paginas <= 1) return;
-
-        const ul = document.createElement('ul');
-        ul.className = 'pagination pagination-sm';
-        
-        for (let i = 1; i <= paginas; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${i === paginaActual ? 'active' : ''}`;
-            const a = document.createElement('a');
-            a.className = 'page-link';
-            a.href = '#';
-            a.textContent = i;
-            a.onclick = (e) => {
-                e.preventDefault();
-                cargarOrdenes(i);
-            };
-            li.appendChild(a);
-            ul.appendChild(li);
-        }
-        
-        div.appendChild(ul);
-    }
-
-    document.getElementById('filtrosForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        cargarOrdenes(1);
-    });
-
-    document.getElementById('filtrosForm').addEventListener('reset', function(e) {
-        e.preventDefault();
-        this.querySelectorAll('select, input').forEach(el => el.value = '');
-        cargarOrdenes(1);
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        cargarOrdenes(1);
-    });
-</script>
+<!-- ✅ Estilos -->
+<style>
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.badge-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+}
+</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>
